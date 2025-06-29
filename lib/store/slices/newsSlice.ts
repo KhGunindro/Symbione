@@ -1,0 +1,176 @@
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { ProcessedNewsArticle, fetchNewsArticles, fetchTrendingArticles, fetchOctantArticles, fetchHistoricalOctantArticles } from '@/lib/news-data';
+import { updateOctantEmotions } from './emotionSlice';
+
+interface NewsState {
+  articles: ProcessedNewsArticle[];
+  trendingArticles: ProcessedNewsArticle[];
+  octantArticles: ProcessedNewsArticle[];
+  historicalOctantArticles: ProcessedNewsArticle[]; // NEW: Historical articles
+  isLoading: boolean;
+  error: string | null;
+  lastFetchTime: string | null;
+  cacheExpiry: number; // in milliseconds
+}
+
+const initialState: NewsState = {
+  articles: [],
+  trendingArticles: [],
+  octantArticles: [],
+  historicalOctantArticles: [], // NEW: Initialize empty
+  isLoading: false,
+  error: null,
+  lastFetchTime: null,
+  cacheExpiry: 60 * 60 * 1000, // 1 hour cache
+};
+
+// Fetch trending articles
+export const fetchTrendingNews = createAsyncThunk(
+  'news/fetchTrending',
+  async (limit: number = 50, { rejectWithValue }) => {
+    try {
+      const articles = await fetchTrendingArticles(limit);
+      return articles;
+    } catch (error) {
+      return rejectWithValue('Failed to fetch trending articles');
+    }
+  }
+);
+
+// Fetch octant articles and update emotion tracking
+export const fetchOctantNews = createAsyncThunk(
+  'news/fetchOctant',
+  async (limit: number = 1000, { rejectWithValue, dispatch }) => {
+    try {
+      const articles = await fetchOctantArticles(limit);
+      
+      // Update octant emotions based on the fetched articles
+      dispatch(updateOctantEmotions(articles));
+      
+      return articles;
+    } catch (error) {
+      return rejectWithValue('Failed to fetch octant articles');
+    }
+  }
+);
+
+// NEW: Fetch historical octant articles (top 8 highest intensity)
+export const fetchHistoricalOctantNews = createAsyncThunk(
+  'news/fetchHistoricalOctant',
+  async (_, { rejectWithValue, dispatch }) => {
+    try {
+      const articles = await fetchHistoricalOctantArticles();
+      
+      // Update octant emotions based on the historical articles
+      dispatch(updateOctantEmotions(articles));
+      
+      return articles;
+    } catch (error) {
+      return rejectWithValue('Failed to fetch historical octant articles');
+    }
+  }
+);
+
+// Fetch all news with cache check
+export const fetchAllNews = createAsyncThunk(
+  'news/fetchAll',
+  async (_, { getState, dispatch }) => {
+    const state = getState() as { news: NewsState };
+    const { lastFetchTime, cacheExpiry } = state.news;
+    
+    const now = new Date().getTime();
+    const lastFetch = lastFetchTime ? new Date(lastFetchTime).getTime() : 0;
+    
+    // Check if cache is still valid
+    if (now - lastFetch < cacheExpiry) {
+      return null; // Use cached data
+    }
+    
+    // Fetch fresh data
+    await Promise.all([
+      dispatch(fetchTrendingNews()),
+      dispatch(fetchOctantNews()),
+      dispatch(fetchHistoricalOctantNews()) // NEW: Also fetch historical data
+    ]);
+    
+    return true;
+  }
+);
+
+const newsSlice = createSlice({
+  name: 'news',
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+    setCacheExpiry: (state, action: PayloadAction<number>) => {
+      state.cacheExpiry = action.payload;
+    },
+    clearCache: (state) => {
+      state.articles = [];
+      state.trendingArticles = [];
+      state.octantArticles = [];
+      state.historicalOctantArticles = []; // NEW: Clear historical cache
+      state.lastFetchTime = null;
+    },
+    // Manual update of octant articles with emotion tracking
+    updateOctantArticles: (state, action: PayloadAction<ProcessedNewsArticle[]>) => {
+      state.octantArticles = action.payload;
+      state.lastFetchTime = new Date().toISOString();
+    },
+    // NEW: Manual update of historical octant articles
+    updateHistoricalOctantArticles: (state, action: PayloadAction<ProcessedNewsArticle[]>) => {
+      state.historicalOctantArticles = action.payload;
+      state.lastFetchTime = new Date().toISOString();
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Trending articles
+      .addCase(fetchTrendingNews.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchTrendingNews.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.trendingArticles = action.payload;
+        state.lastFetchTime = new Date().toISOString();
+      })
+      .addCase(fetchTrendingNews.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Octant articles
+      .addCase(fetchOctantNews.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchOctantNews.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.octantArticles = action.payload;
+        state.lastFetchTime = new Date().toISOString();
+      })
+      .addCase(fetchOctantNews.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // NEW: Historical octant articles
+      .addCase(fetchHistoricalOctantNews.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchHistoricalOctantNews.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.historicalOctantArticles = action.payload;
+        state.lastFetchTime = new Date().toISOString();
+      })
+      .addCase(fetchHistoricalOctantNews.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+  },
+});
+
+export const { clearError, setCacheExpiry, clearCache, updateOctantArticles, updateHistoricalOctantArticles } = newsSlice.actions;
+export default newsSlice.reducer;

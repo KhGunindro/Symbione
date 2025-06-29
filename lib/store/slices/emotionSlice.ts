@@ -1,0 +1,151 @@
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { EmotionType } from '@/lib/emotions';
+import { getCurrentDominantEmotion } from '@/lib/news-data';
+import { ProcessedNewsArticle } from '@/lib/news-data';
+
+interface OctantEmotionData {
+  emotion: EmotionType;
+  count: number;
+  articles: ProcessedNewsArticle[];
+}
+
+interface EmotionState {
+  dominantEmotion: EmotionType;
+  octantDominantEmotion: EmotionType; // New: emotion from octant with most datapoints
+  octantEmotionDistribution: Record<EmotionType, number>; // New: count of articles per emotion in octants
+  lastUpdated: string | null;
+  isLoading: boolean;
+  error: string | null;
+  updateInterval: number; // in milliseconds
+}
+
+const initialState: EmotionState = {
+  dominantEmotion: 'joy',
+  octantDominantEmotion: 'joy',
+  octantEmotionDistribution: {
+    joy: 0,
+    trust: 0,
+    fear: 0,
+    surprise: 0,
+    sadness: 0,
+    disgust: 0,
+    anger: 0,
+    anticipation: 0
+  },
+  lastUpdated: null,
+  isLoading: false,
+  error: null,
+  updateInterval: 60 * 60 * 1000, // 1 hour in milliseconds
+};
+
+// Async thunk to fetch dominant emotion from database
+export const fetchDominantEmotion = createAsyncThunk(
+  'emotion/fetchDominantEmotion',
+  async (_, { rejectWithValue }) => {
+    try {
+      const emotion = await getCurrentDominantEmotion();
+      return emotion;
+    } catch (error) {
+      return rejectWithValue('Failed to fetch dominant emotion');
+    }
+  }
+);
+
+// Async thunk to check if update is needed and fetch if so
+export const checkAndUpdateEmotion = createAsyncThunk(
+  'emotion/checkAndUpdateEmotion',
+  async (_, { getState, dispatch }) => {
+    const state = getState() as { emotion: EmotionState };
+    const { lastUpdated, updateInterval } = state.emotion;
+    
+    const now = new Date().getTime();
+    const lastUpdateTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
+    
+    // Check if an hour has passed since last update
+    if (now - lastUpdateTime >= updateInterval) {
+      return dispatch(fetchDominantEmotion());
+    }
+    
+    return null;
+  }
+);
+
+const emotionSlice = createSlice({
+  name: 'emotion',
+  initialState,
+  reducers: {
+    setDominantEmotion: (state, action: PayloadAction<EmotionType>) => {
+      state.dominantEmotion = action.payload;
+      state.lastUpdated = new Date().toISOString();
+    },
+    // New: Update octant emotion data based on articles
+    updateOctantEmotions: (state, action: PayloadAction<ProcessedNewsArticle[]>) => {
+      const articles = action.payload;
+      
+      // Reset distribution
+      const distribution: Record<EmotionType, number> = {
+        joy: 0,
+        trust: 0,
+        fear: 0,
+        surprise: 0,
+        sadness: 0,
+        disgust: 0,
+        anger: 0,
+        anticipation: 0
+      };
+      
+      // Count articles by emotion
+      articles.forEach(article => {
+        distribution[article.emotion]++;
+      });
+      
+      // Find emotion with most articles
+      let dominantEmotion: EmotionType = 'joy';
+      let maxCount = 0;
+      
+      Object.entries(distribution).forEach(([emotion, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          dominantEmotion = emotion as EmotionType;
+        }
+      });
+      
+      state.octantEmotionDistribution = distribution;
+      state.octantDominantEmotion = dominantEmotion;
+      state.dominantEmotion = dominantEmotion; // Update main dominant emotion too
+      state.lastUpdated = new Date().toISOString();
+    },
+    clearError: (state) => {
+      state.error = null;
+    },
+    setUpdateInterval: (state, action: PayloadAction<number>) => {
+      state.updateInterval = action.payload;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchDominantEmotion.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchDominantEmotion.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.dominantEmotion = action.payload;
+        state.lastUpdated = new Date().toISOString();
+        state.error = null;
+      })
+      .addCase(fetchDominantEmotion.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+  },
+});
+
+export const { 
+  setDominantEmotion, 
+  updateOctantEmotions, 
+  clearError, 
+  setUpdateInterval 
+} = emotionSlice.actions;
+
+export default emotionSlice.reducer;
