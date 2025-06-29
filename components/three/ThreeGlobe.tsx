@@ -16,8 +16,9 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
   const sceneRef = useRef<THREE.Scene>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const globeRef = useRef<THREE.Group>();
-  const glowRef = useRef<THREE.Mesh>();
-  const wavyGlowRef = useRef<THREE.Mesh>();
+  const innerAtmosphereRef = useRef<THREE.Mesh>();
+  const outerAtmosphereRef = useRef<THREE.Mesh>();
+  const coronaRef = useRef<THREE.Mesh>();
   const starsRef = useRef<THREE.Points>();
   const [isLoading, setIsLoading] = useState(true);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -121,20 +122,22 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
     const emotionTheme = getEmotionTheme(currentEmotion);
     const emotionColor = new THREE.Color(emotionTheme.color);
 
+    console.log(`🌍 Creating COMPACT ATMOSPHERIC GLOW with emotion: ${currentEmotion}, color: ${emotionTheme.color}`);
+
     // Map emotion names to numbers for shader
     const emotionMap: { [key: string]: number } = {
       'joy': 0, 'trust': 1, 'fear': 2, 'surprise': 3,
       'sadness': 4, 'anticipation': 5, 'anger': 6, 'disgust': 7
     };
 
-    // Create UNEVEN INNER GLOW LAYER - Dispersed atmosphere effect
-    const innerGlowGeometry = new THREE.SphereGeometry(0.75, 64, 64);
-    const innerGlowMaterial = new THREE.ShaderMaterial({
+    // LAYER 1: INNER ATMOSPHERE - Reduced from 0.72 to 0.68 (closer to Earth)
+    const innerAtmosphereGeometry = new THREE.SphereGeometry(0.68, 64, 64);
+    const innerAtmosphereMaterial = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
         glowColor: { value: emotionColor },
         mousePos: { value: new THREE.Vector2(0, 0) },
-        emotionIntensity: { value: 0.8 },
+        emotionIntensity: { value: 1.0 },
         emotionType: { value: emotionMap[currentEmotion] || 0 }
       },
       vertexShader: `
@@ -146,7 +149,7 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
         uniform float emotionIntensity;
         uniform int emotionType;
         
-        // Enhanced noise functions for uneven patterns
+        // Atmospheric noise functions
         float random(vec3 p) {
           return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
         }
@@ -163,13 +166,13 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
                 mix(random(i + vec3(0,1,1)), random(i + vec3(1,1,1)), f.x), f.y), f.z);
         }
         
-        // Fractal noise for complex uneven patterns
+        // Atmospheric turbulence
         float fbm(vec3 p) {
           float value = 0.0;
           float amplitude = 0.5;
           float frequency = 1.0;
           
-          for(int i = 0; i < 5; i++) {
+          for(int i = 0; i < 4; i++) {
             value += amplitude * noise(p * frequency);
             amplitude *= 0.5;
             frequency *= 2.0;
@@ -184,69 +187,55 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
           
           vec3 pos = position;
           
-          // Create highly uneven displacement using fractal noise
-          float unevenNoise1 = fbm(pos * 6.0 + time * 0.4) * 0.08;
-          float unevenNoise2 = fbm(pos * 10.0 + time * 0.3 + vec3(100.0)) * 0.06;
-          float unevenNoise3 = fbm(pos * 4.0 + time * 0.5 + vec3(200.0)) * 0.1;
+          // Dense atmospheric turbulence near surface
+          float atmosphericNoise1 = fbm(pos * 3.0 + time * 0.2) * 0.06; // Reduced displacement
+          float atmosphericNoise2 = fbm(pos * 6.0 + time * 0.15 + vec3(100.0)) * 0.04;
+          float atmosphericNoise3 = fbm(pos * 9.0 + time * 0.25 + vec3(200.0)) * 0.03;
           
-          // Add chaotic, non-uniform patterns
-          float chaos1 = sin(pos.x * 20.0 + time * 1.5) * cos(pos.y * 15.0 + time * 1.2) * 0.05;
-          float chaos2 = sin(pos.z * 25.0 + time * 1.8) * cos(pos.x * 18.0 + time * 1.0) * 0.04;
-          float chaos3 = sin(pos.y * 30.0 + time * 2.0) * cos(pos.z * 22.0 + time * 1.6) * 0.03;
+          // Emotion-based atmospheric patterns
+          float emotionFlow1, emotionFlow2;
           
-          // Emotion-based uneven patterns
-          float emotionWave1, emotionWave2, emotionWave3;
-          
-          if (emotionType == 0) { // joy - bright, scattered bursts
-            emotionWave1 = sin(time * 2.0 + pos.y * 12.0) * 0.06;
-            emotionWave2 = cos(time * 1.5 + pos.x * 10.0) * 0.05;
-            emotionWave3 = sin(time * 2.5 + pos.z * 15.0) * 0.04;
-          } else if (emotionType == 1) { // trust - gentle, warm patches
-            emotionWave1 = sin(time * 1.0 + pos.x * 8.0) * 0.04;
-            emotionWave2 = cos(time * 0.8 + pos.y * 6.0) * 0.05;
-            emotionWave3 = sin(time * 1.2 + pos.z * 7.0) * 0.03;
-          } else if (emotionType == 2) { // fear - tense, fragmented
-            emotionWave1 = sin(time * 3.0 + pos.x * 18.0) * 0.03;
-            emotionWave2 = cos(time * 2.5 + pos.y * 16.0) * 0.025;
-            emotionWave3 = sin(time * 3.5 + pos.z * 20.0) * 0.02;
-          } else if (emotionType == 3) { // surprise - sudden, chaotic bursts
-            float burst = sin(time * 4.0) > 0.7 ? 0.12 : 0.02;
-            emotionWave1 = sin(time * 5.0 + pos.x * 25.0) * burst;
-            emotionWave2 = cos(time * 4.5 + pos.y * 22.0) * burst * 0.8;
-            emotionWave3 = sin(time * 6.0 + pos.z * 28.0) * burst * 0.6;
-          } else if (emotionType == 4) { // sadness - dim, sparse patches
-            emotionWave1 = sin(time * 0.5 + pos.x * 5.0) * 0.025;
-            emotionWave2 = cos(time * 0.4 + pos.y * 4.0) * 0.03;
-            emotionWave3 = sin(time * 0.6 + pos.z * 6.0) * 0.02;
-          } else if (emotionType == 5) { // anticipation - building, pulsing patches
-            float build = 0.3 + 0.7 * sin(time * 1.5);
-            emotionWave1 = sin(time * 1.2 + pos.x * 9.0) * 0.05 * build;
-            emotionWave2 = cos(time * 1.0 + pos.y * 7.0) * 0.04 * build;
-            emotionWave3 = sin(time * 1.4 + pos.z * 11.0) * 0.03 * build;
-          } else if (emotionType == 6) { // anger - violent, chaotic fragments
-            emotionWave1 = sin(time * 3.5 + pos.x * 20.0 + sin(time * 7.0) * 3.0) * 0.07;
-            emotionWave2 = cos(time * 3.0 + pos.y * 18.0 + cos(time * 6.0) * 2.5) * 0.06;
-            emotionWave3 = sin(time * 4.0 + pos.z * 25.0 + sin(time * 8.0) * 4.0) * 0.05;
-          } else { // disgust - twisted, irregular patches
-            emotionWave1 = sin(time * 1.2 + pos.x * 8.0 + pos.y * 3.0) * 0.04;
-            emotionWave2 = cos(time * 1.0 + pos.y * 10.0 + pos.z * 2.0) * 0.035;
-            emotionWave3 = sin(time * 1.4 + pos.z * 12.0 + pos.x * 4.0) * 0.03;
+          if (emotionType == 0) { // joy - upward flowing, bright
+            emotionFlow1 = sin(time * 1.5 + pos.y * 8.0) * 0.08;
+            emotionFlow2 = cos(time * 1.2 + length(pos.xz) * 6.0) * 0.06;
+          } else if (emotionType == 1) { // trust - gentle, stable
+            emotionFlow1 = sin(time * 0.8 + atan(pos.x, pos.z) * 4.0) * 0.05;
+            emotionFlow2 = cos(time * 0.6 + pos.y * 3.0) * 0.04;
+          } else if (emotionType == 2) { // fear - tense, contracted
+            emotionFlow1 = sin(time * 2.0 + pos.x * 10.0) * 0.03 * (1.0 + sin(time * 4.0) * 0.5);
+            emotionFlow2 = cos(time * 1.8 + pos.z * 8.0) * 0.025;
+          } else if (emotionType == 3) { // surprise - sudden bursts
+            float burst = sin(time * 3.0) > 0.6 ? 1.8 : 0.2;
+            emotionFlow1 = sin(time * 4.0 + pos.x * 12.0) * 0.1 * burst;
+            emotionFlow2 = cos(time * 3.5 + pos.y * 10.0) * 0.08 * burst;
+          } else if (emotionType == 4) { // sadness - drooping, slow
+            emotionFlow1 = sin(time * 0.4 + pos.x * 2.0) * 0.025;
+            emotionFlow2 = cos(time * 0.3 + pos.y * 1.5) * 0.03 - 0.008;
+          } else if (emotionType == 5) { // anticipation - building
+            float build = 0.3 + 0.7 * sin(time * 1.0);
+            emotionFlow1 = sin(time * 1.0 + pos.x * 4.0) * 0.06 * build;
+            emotionFlow2 = cos(time * 0.8 + pos.z * 5.0) * 0.05 * build;
+          } else if (emotionType == 6) { // anger - chaotic, violent
+            emotionFlow1 = sin(time * 2.5 + pos.x * 8.0 + sin(time * 5.0) * 2.0) * 0.08;
+            emotionFlow2 = cos(time * 2.2 + pos.y * 6.0 + cos(time * 4.5) * 1.5) * 0.06;
+          } else { // disgust - twisted, irregular
+            emotionFlow1 = sin(time * 1.0 + pos.x * 3.0 + pos.y * 1.5) * 0.05;
+            emotionFlow2 = cos(time * 1.2 + pos.z * 4.0 + pos.x * 2.0) * 0.04;
           }
           
-          // Mouse influence for interactive uneven effects
-          vec2 mouseInfluence = mousePos * 0.1;
+          // Mouse interaction for atmospheric disturbance
+          vec2 mouseInfluence = mousePos * 0.08; // Reduced mouse influence
           float mouseDistance = length(pos.xy - mouseInfluence);
-          float mouseEffect = exp(-mouseDistance * 2.0) * 0.08;
+          float mouseDisturbance = sin(mouseDistance * 4.0 - time * 2.0) * exp(-mouseDistance * 1.0) * 0.06;
           
-          // Combine all uneven effects
-          vec3 totalDisplacement = normal * (
-            unevenNoise1 + unevenNoise2 + unevenNoise3 +
-            chaos1 + chaos2 + chaos3 +
-            emotionWave1 + emotionWave2 + emotionWave3 + 
-            mouseEffect
+          // Combine atmospheric effects
+          vec3 atmosphericDisplacement = normal * (
+            atmosphericNoise1 + atmosphericNoise2 + atmosphericNoise3 +
+            emotionFlow1 + emotionFlow2 + 
+            mouseDisturbance
           ) * emotionIntensity;
           
-          pos += totalDisplacement;
+          pos += atmosphericDisplacement;
           
           gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
@@ -261,7 +250,7 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
         uniform float emotionIntensity;
         uniform int emotionType;
         
-        // Enhanced noise for uneven patterns
+        // Atmospheric noise
         float random(vec2 st) {
           return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
         }
@@ -278,78 +267,49 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
         }
         
         void main() {
-          // Create uneven fresnel effect
+          // Dense atmospheric fresnel
           float fresnel = 1.0 - abs(dot(vNormal, vec3(0, 0, 1.0)));
-          fresnel = pow(fresnel, 1.5);
+          fresnel = pow(fresnel, 1.2);
           
-          // Create highly uneven, fragmented patterns
-          float fragment1 = noise(vPosition.xy * 20.0 + time * 0.8);
-          float fragment2 = noise(vPosition.xz * 25.0 + time * 0.6);
-          float fragment3 = noise(vPosition.yz * 30.0 + time * 1.0);
+          // Dense atmospheric patterns
+          float atmosphere1 = noise(vPosition.xy * 8.0 + time * 0.3);
+          float atmosphere2 = noise(vPosition.xz * 10.0 + time * 0.2);
+          float atmosphere3 = noise(vPosition.yz * 12.0 + time * 0.4);
           
-          // Combine fragments for uneven distribution
-          float fragmentPattern = (fragment1 * fragment2 + fragment3) * 0.5;
+          float atmosphericDensity = (atmosphere1 + atmosphere2 + atmosphere3) / 3.0;
           
-          // Add chaotic intensity variations
-          float chaos1 = sin(vPosition.x * 35.0 + time * 2.0) * 0.3 + 0.7;
-          float chaos2 = cos(vPosition.y * 40.0 + time * 1.5) * 0.25 + 0.75;
-          float chaos3 = sin(vPosition.z * 45.0 + time * 2.5) * 0.28 + 0.72;
+          // Emotion-based atmospheric intensity
+          float emotionPattern;
           
-          // Emotion-based uneven intensity patterns
-          float pattern1, pattern2, pattern3;
-          
-          if (emotionType == 0) { // joy - bright, scattered patches
-            pattern1 = sin(vPosition.x * 25.0 + time * 2.0) * 0.6 + 0.4;
-            pattern2 = cos(vPosition.y * 20.0 + time * 1.5) * 0.5 + 0.5;
-            pattern3 = sin(vPosition.z * 30.0 + time * 2.5) * 0.55 + 0.45;
-          } else if (emotionType == 1) { // trust - gentle, warm patches
-            pattern1 = sin(vPosition.x * 15.0 + time * 1.0) * 0.3 + 0.7;
-            pattern2 = cos(vPosition.y * 12.0 + time * 0.8) * 0.25 + 0.75;
-            pattern3 = sin(vPosition.z * 18.0 + time * 1.2) * 0.28 + 0.72;
-          } else if (emotionType == 2) { // fear - tense, fragmented
-            pattern1 = sin(vPosition.x * 40.0 + time * 3.0) * 0.7 + 0.3;
-            pattern2 = cos(vPosition.y * 35.0 + time * 2.5) * 0.6 + 0.4;
-            pattern3 = sin(vPosition.z * 45.0 + time * 3.5) * 0.65 + 0.35;
-          } else if (emotionType == 3) { // surprise - sudden, chaotic bursts
-            float burst = sin(time * 4.0) > 0.7 ? 2.0 : 0.2;
-            pattern1 = sin(vPosition.x * 50.0 + time * 5.0) * 0.8 * burst + 0.2;
-            pattern2 = cos(vPosition.y * 45.0 + time * 4.5) * 0.7 * burst + 0.3;
-            pattern3 = sin(vPosition.z * 55.0 + time * 6.0) * 0.75 * burst + 0.25;
-          } else if (emotionType == 4) { // sadness - dim, sparse patches
-            pattern1 = sin(vPosition.x * 10.0 + time * 0.5) * 0.2 + 0.3;
-            pattern2 = cos(vPosition.y * 8.0 + time * 0.4) * 0.18 + 0.32;
-            pattern3 = sin(vPosition.z * 12.0 + time * 0.6) * 0.22 + 0.28;
-          } else if (emotionType == 5) { // anticipation - building, pulsing patches
-            float build = 0.2 + 0.8 * sin(time * 1.5);
-            pattern1 = sin(vPosition.x * 20.0 + time * 1.5) * 0.4 * build + 0.4;
-            pattern2 = cos(vPosition.y * 18.0 + time * 1.2) * 0.35 * build + 0.45;
-            pattern3 = sin(vPosition.z * 25.0 + time * 1.8) * 0.38 * build + 0.42;
-          } else if (emotionType == 6) { // anger - violent, chaotic fragments
-            pattern1 = sin(vPosition.x * 30.0 + time * 3.5 + sin(time * 7.0)) * 0.8 + 0.5;
-            pattern2 = cos(vPosition.y * 28.0 + time * 3.0 + cos(time * 6.0)) * 0.7 + 0.6;
-            pattern3 = sin(vPosition.z * 35.0 + time * 4.0 + sin(time * 8.0)) * 0.75 + 0.55;
-          } else { // disgust - twisted, irregular patches
-            pattern1 = sin(vPosition.x * 22.0 + vPosition.y * 5.0 + time * 1.5) * 0.4 + 0.3;
-            pattern2 = cos(vPosition.y * 20.0 + vPosition.z * 4.0 + time * 1.2) * 0.35 + 0.35;
-            pattern3 = sin(vPosition.z * 25.0 + vPosition.x * 6.0 + time * 1.8) * 0.38 + 0.32;
+          if (emotionType == 0) { // joy - bright, energetic
+            emotionPattern = sin(vPosition.x * 8.0 + time * 2.0) * 0.5 + 0.7;
+          } else if (emotionType == 1) { // trust - warm, stable
+            emotionPattern = sin(vPosition.x * 4.0 + time * 1.0) * 0.3 + 0.8;
+          } else if (emotionType == 2) { // fear - tense, flickering
+            emotionPattern = sin(vPosition.x * 12.0 + time * 3.0) * 0.6 + 0.4;
+          } else if (emotionType == 3) { // surprise - bursting
+            float burst = sin(time * 3.5) > 0.5 ? 1.5 : 0.3;
+            emotionPattern = sin(vPosition.x * 15.0 + time * 4.0) * 0.7 * burst + 0.3;
+          } else if (emotionType == 4) { // sadness - dim, sparse
+            emotionPattern = sin(vPosition.x * 3.0 + time * 0.5) * 0.2 + 0.4;
+          } else if (emotionType == 5) { // anticipation - building
+            float build = 0.4 + 0.6 * sin(time * 1.2);
+            emotionPattern = sin(vPosition.x * 6.0 + time * 1.5) * 0.4 * build + 0.5;
+          } else if (emotionType == 6) { // anger - violent, chaotic
+            emotionPattern = sin(vPosition.x * 10.0 + time * 2.8 + sin(time * 6.0)) * 0.8 + 0.6;
+          } else { // disgust - irregular, twisted
+            emotionPattern = sin(vPosition.x * 7.0 + vPosition.y * 2.0 + time * 1.3) * 0.4 + 0.5;
           }
-          
-          // Combine all patterns for highly uneven effect
-          float unevenIntensity = fragmentPattern * chaos1 * chaos2 * chaos3 * pattern1 * pattern2 * pattern3;
           
           // Mouse reactive glow
           float mouseDistance = length(vPosition.xy - mousePos);
-          float mouseGlow = 1.0 + exp(-mouseDistance * 3.0) * 0.8;
+          float mouseGlow = 1.0 + exp(-mouseDistance * 2.0) * 0.6;
           
-          // Create threshold for uneven fragments (makes it non-circular and patchy)
-          float threshold = 0.3 + 0.4 * noise(vPosition.xy * 12.0 + time * 0.5);
-          float unevenMask = step(threshold, unevenIntensity);
+          // Atmospheric breathing effect
+          float breathe = 0.7 + 0.3 * sin(time * 1.5);
           
-          // Alive pulsing effect
-          float pulse = 0.5 + 0.5 * sin(time * 2.0 + vPosition.x * 8.0) * cos(time * 1.5 + vPosition.y * 6.0);
-          
-          // Final highly uneven, fragmented intensity
-          float finalIntensity = fresnel * unevenMask * unevenIntensity * mouseGlow * pulse * emotionIntensity * 0.6;
+          // Final dense atmospheric intensity
+          float finalIntensity = fresnel * atmosphericDensity * emotionPattern * mouseGlow * breathe * emotionIntensity * 0.8;
           
           gl_FragColor = vec4(glowColor, finalIntensity);
         }
@@ -359,13 +319,13 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
       blending: THREE.AdditiveBlending
     });
 
-    const innerGlowMesh = new THREE.Mesh(innerGlowGeometry, innerGlowMaterial);
-    glowRef.current = innerGlowMesh;
-    scene.add(innerGlowMesh);
+    const innerAtmosphereMesh = new THREE.Mesh(innerAtmosphereGeometry, innerAtmosphereMaterial);
+    innerAtmosphereRef.current = innerAtmosphereMesh;
+    scene.add(innerAtmosphereMesh);
 
-    // Create UNEVEN OUTER GLOW LAYER - Extended dispersed atmosphere
-    const outerGlowGeometry = new THREE.SphereGeometry(0.95, 64, 64);
-    const outerGlowMaterial = new THREE.ShaderMaterial({
+    // LAYER 2: OUTER ATMOSPHERE - Reduced from 0.85 to 0.75 (more compact)
+    const outerAtmosphereGeometry = new THREE.SphereGeometry(0.75, 64, 64);
+    const outerAtmosphereMaterial = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
         glowColor: { value: emotionColor },
@@ -382,7 +342,7 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
         uniform float emotionIntensity;
         uniform int emotionType;
         
-        // Advanced noise functions for highly uneven patterns
+        // Wispy atmospheric noise
         float random(vec3 p) {
           return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
         }
@@ -399,13 +359,13 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
                 mix(random(i + vec3(0,1,1)), random(i + vec3(1,1,1)), f.x), f.y), f.z);
         }
         
-        // Multi-octave fractal noise for complex uneven patterns
+        // Wispy cloud-like patterns
         float fbm(vec3 p) {
           float value = 0.0;
           float amplitude = 0.5;
           float frequency = 1.0;
           
-          for(int i = 0; i < 6; i++) {
+          for(int i = 0; i < 3; i++) {
             value += amplitude * noise(p * frequency);
             amplitude *= 0.5;
             frequency *= 2.0;
@@ -420,79 +380,55 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
           
           vec3 pos = position;
           
-          // Create extremely uneven displacement using multiple noise layers
-          float unevenNoise1 = fbm(pos * 4.0 + time * 0.3) * 0.12;
-          float unevenNoise2 = fbm(pos * 8.0 + time * 0.2 + vec3(100.0)) * 0.09;
-          float unevenNoise3 = fbm(pos * 12.0 + time * 0.4 + vec3(200.0)) * 0.07;
-          float unevenNoise4 = fbm(pos * 6.0 + time * 0.5 + vec3(300.0)) * 0.1;
+          // Wispy atmospheric flows - reduced displacement
+          float wispyNoise1 = fbm(pos * 1.5 + time * 0.1) * 0.1; // Reduced from 0.15
+          float wispyNoise2 = fbm(pos * 2.5 + time * 0.08 + vec3(50.0)) * 0.08; // Reduced from 0.12
+          float wispyNoise3 = fbm(pos * 3.5 + time * 0.12 + vec3(100.0)) * 0.06; // Reduced from 0.1
           
-          // Add highly chaotic, non-uniform patterns
-          float chaos1 = sin(pos.x * 18.0 + time * 1.2) * cos(pos.y * 15.0 + time * 1.0) * 0.08;
-          float chaos2 = sin(pos.z * 22.0 + time * 1.5) * cos(pos.x * 20.0 + time * 1.3) * 0.06;
-          float chaos3 = sin(pos.y * 25.0 + time * 1.8) * cos(pos.z * 18.0 + time * 1.1) * 0.07;
-          float chaos4 = sin(pos.x * 30.0 + time * 2.0) * cos(pos.y * 28.0 + time * 1.6) * 0.05;
+          // Emotion-based wispy flows
+          float wispyFlow1, wispyFlow2;
           
-          // Emotion-based highly uneven wave patterns
-          float wave1, wave2, wave3, wave4;
-          
-          if (emotionType == 0) { // joy - bright, scattered, upward flowing
-            wave1 = sin(time * 2.0 + pos.y * 10.0 + pos.x * 3.0) * 0.1;
-            wave2 = cos(time * 1.5 + pos.z * 8.0 + pos.y * 4.0) * 0.08;
-            wave3 = sin(time * 2.5 + length(pos.xz) * 12.0) * 0.06;
-            wave4 = cos(time * 3.0 + atan(pos.x, pos.z) * 8.0) * 0.05;
-          } else if (emotionType == 1) { // trust - gentle, warm, orbiting patches
-            wave1 = sin(time * 1.0 + atan(pos.x, pos.z) * 6.0) * 0.08;
-            wave2 = cos(time * 0.8 + pos.y * 5.0) * 0.07;
-            wave3 = sin(time * 1.2 + length(pos.xy) * 7.0) * 0.06;
-            wave4 = cos(time * 0.9 + length(pos.yz) * 8.0) * 0.05;
-          } else if (emotionType == 2) { // fear - tense, recoiling, fragmented
-            wave1 = sin(time * 2.5 + pos.x * 12.0) * 0.06 * (1.0 + sin(time * 4.0) * 0.5);
-            wave2 = cos(time * 2.2 + pos.y * 10.0) * 0.05 * (1.0 + cos(time * 3.5) * 0.4);
-            wave3 = sin(time * 3.0 + pos.z * 14.0) * 0.04 * (1.0 + sin(time * 5.0) * 0.6);
-            wave4 = cos(time * 2.8 + length(pos) * 15.0) * 0.03;
-          } else if (emotionType == 3) { // surprise - sudden, chaotic bursts
-            float burst = sin(time * 4.0) > 0.6 ? 1.5 : 0.3;
-            wave1 = sin(time * 5.0 + pos.x * 18.0) * 0.12 * burst;
-            wave2 = cos(time * 4.5 + pos.y * 15.0) * 0.1 * burst;
-            wave3 = sin(time * 6.0 + pos.z * 20.0) * 0.08 * burst;
-            wave4 = cos(time * 5.5 + length(pos.xy) * 22.0) * 0.06 * burst;
-          } else if (emotionType == 4) { // sadness - dim, drooping, sparse
-            wave1 = sin(time * 0.6 + pos.x * 4.0) * 0.04;
-            wave2 = cos(time * 0.5 + pos.y * 3.0) * 0.05 - 0.01;
-            wave3 = sin(time * 0.7 + pos.z * 5.0) * 0.03;
-            wave4 = cos(time * 0.55 + length(pos) * 6.0) * 0.025;
-          } else if (emotionType == 5) { // anticipation - building, pulsing
-            float build = 0.2 + 0.8 * sin(time * 1.5);
-            wave1 = sin(time * 1.2 + pos.x * 7.0) * 0.08 * build;
-            wave2 = cos(time * 1.0 + pos.y * 6.0) * 0.07 * build;
-            wave3 = sin(time * 1.4 + pos.z * 8.0) * 0.06 * build;
-            wave4 = cos(time * 1.1 + length(pos.xz) * 9.0) * 0.05 * build;
-          } else if (emotionType == 6) { // anger - violent, erratic, chaotic
-            wave1 = sin(time * 3.0 + pos.x * 15.0 + sin(time * 6.0) * 4.0) * 0.11;
-            wave2 = cos(time * 2.8 + pos.y * 12.0 + cos(time * 5.0) * 3.0) * 0.09;
-            wave3 = sin(time * 3.5 + pos.z * 18.0 + sin(time * 7.0) * 5.0) * 0.08;
-            wave4 = cos(time * 3.2 + length(pos) * 20.0) * 0.06;
-          } else { // disgust - twisted, irregular, uneven
-            wave1 = sin(time * 1.3 + pos.x * 6.0 + pos.y * 2.5) * 0.07;
-            wave2 = cos(time * 1.5 + pos.y * 8.0 + pos.z * 2.0) * 0.06;
-            wave3 = sin(time * 1.7 + pos.z * 9.0 + pos.x * 3.0) * 0.05;
-            wave4 = cos(time * 1.4 + length(pos.xy) * 10.0 + pos.z) * 0.04;
+          if (emotionType == 0) { // joy - upward spiraling wisps
+            wispyFlow1 = sin(time * 0.8 + pos.y * 4.0 + atan(pos.x, pos.z) * 2.0) * 0.08;
+            wispyFlow2 = cos(time * 0.6 + length(pos.xz) * 3.0) * 0.06;
+          } else if (emotionType == 1) { // trust - gentle orbital wisps
+            wispyFlow1 = sin(time * 0.5 + atan(pos.x, pos.z) * 3.0) * 0.06;
+            wispyFlow2 = cos(time * 0.4 + pos.y * 2.0) * 0.05;
+          } else if (emotionType == 2) { // fear - recoiling wisps
+            wispyFlow1 = sin(time * 1.5 + pos.x * 6.0) * 0.04 * (1.0 + sin(time * 3.0) * 0.4);
+            wispyFlow2 = cos(time * 1.3 + pos.z * 5.0) * 0.035;
+          } else if (emotionType == 3) { // surprise - explosive wisps
+            float burst = sin(time * 2.5) > 0.7 ? 2.0 : 0.1;
+            wispyFlow1 = sin(time * 3.0 + pos.x * 8.0) * 0.1 * burst;
+            wispyFlow2 = cos(time * 2.8 + pos.y * 7.0) * 0.08 * burst;
+          } else if (emotionType == 4) { // sadness - drooping wisps
+            wispyFlow1 = sin(time * 0.3 + pos.x * 1.5) * 0.03;
+            wispyFlow2 = cos(time * 0.25 + pos.y * 1.0) * 0.04 - 0.015;
+          } else if (emotionType == 5) { // anticipation - gathering wisps
+            float gather = 0.2 + 0.8 * sin(time * 0.8);
+            wispyFlow1 = sin(time * 0.7 + pos.x * 3.0) * 0.08 * gather;
+            wispyFlow2 = cos(time * 0.6 + pos.z * 3.5) * 0.06 * gather;
+          } else if (emotionType == 6) { // anger - chaotic wisps
+            wispyFlow1 = sin(time * 2.0 + pos.x * 6.0 + sin(time * 4.0) * 1.5) * 0.08;
+            wispyFlow2 = cos(time * 1.8 + pos.y * 5.0 + cos(time * 3.5) * 1.2) * 0.06;
+          } else { // disgust - twisted wisps
+            wispyFlow1 = sin(time * 0.8 + pos.x * 2.5 + pos.y * 1.0) * 0.06;
+            wispyFlow2 = cos(time * 1.0 + pos.z * 3.0 + pos.x * 1.5) * 0.05;
           }
           
-          // Mouse influence for interactive uneven effects
+          // Mouse creates atmospheric disturbance
           vec2 mouseInfluence = mousePos * 0.12;
           float mouseDistance = length(pos.xy - mouseInfluence);
-          float mouseWave = sin(mouseDistance * 5.0 - time * 2.5) * exp(-mouseDistance * 1.2) * 0.1;
+          float mouseWisp = sin(mouseDistance * 2.5 - time * 1.5) * exp(-mouseDistance * 0.6) * 0.08;
           
-          // Combine all highly uneven effects
-          vec3 totalDisplacement = normal * (
-            unevenNoise1 + unevenNoise2 + unevenNoise3 + unevenNoise4 +
-            chaos1 + chaos2 + chaos3 + chaos4 +
-            wave1 + wave2 + wave3 + wave4 + 
-            mouseWave
+          // Combine wispy atmospheric effects
+          vec3 wispyDisplacement = normal * (
+            wispyNoise1 + wispyNoise2 + wispyNoise3 +
+            wispyFlow1 + wispyFlow2 + 
+            mouseWisp
           ) * emotionIntensity;
           
-          pos += totalDisplacement;
+          pos += wispyDisplacement;
           
           gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
         }
@@ -507,7 +443,7 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
         uniform float emotionIntensity;
         uniform int emotionType;
         
-        // Enhanced noise for highly uneven patterns
+        // Wispy noise patterns
         float random(vec2 st) {
           return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
         }
@@ -523,110 +459,50 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
           return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
         }
         
-        // Multi-octave noise for complex patterns
-        float fbm(vec2 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          float frequency = 1.0;
-          
-          for(int i = 0; i < 4; i++) {
-            value += amplitude * noise(p * frequency);
-            amplitude *= 0.5;
-            frequency *= 2.0;
-          }
-          return value;
-        }
-        
         void main() {
-          // Create highly uneven fresnel effect
+          // Wispy atmospheric fresnel
           float fresnel = 1.0 - abs(dot(vNormal, vec3(0, 0, 1.0)));
-          fresnel = pow(fresnel, 2.0);
+          fresnel = pow(fresnel, 2.5);
           
-          // Create extremely uneven, fragmented patterns using multiple noise layers
-          float fragment1 = fbm(vPosition.xy * 15.0 + time * 0.7);
-          float fragment2 = fbm(vPosition.xz * 18.0 + time * 0.5);
-          float fragment3 = fbm(vPosition.yz * 22.0 + time * 0.9);
-          float fragment4 = fbm(vPosition.xy * 25.0 + time * 0.3);
+          // Wispy cloud patterns
+          float wispy1 = noise(vPosition.xy * 4.0 + time * 0.2);
+          float wispy2 = noise(vPosition.xz * 5.0 + time * 0.15);
+          float wispy3 = noise(vPosition.yz * 6.0 + time * 0.25);
           
-          // Combine fragments for highly uneven distribution
-          float fragmentPattern = (fragment1 * fragment2 + fragment3 * fragment4) * 0.5;
+          float wispyPattern = (wispy1 + wispy2 + wispy3) / 3.0;
           
-          // Add multiple layers of chaotic intensity variations
-          float chaos1 = sin(vPosition.x * 30.0 + time * 2.5) * 0.3 + 0.7;
-          float chaos2 = cos(vPosition.y * 35.0 + time * 2.0) * 0.25 + 0.75;
-          float chaos3 = sin(vPosition.z * 40.0 + time * 3.0) * 0.28 + 0.72;
-          float chaos4 = cos(vPosition.x * 45.0 + vPosition.y * 20.0 + time * 2.8) * 0.2 + 0.8;
+          // Emotion-based wispy intensity
+          float emotionWisp;
           
-          // Emotion-based highly uneven intensity patterns
-          float pattern1, pattern2, pattern3, pattern4;
-          
-          if (emotionType == 0) { // joy - bright, scattered, energetic patches
-            pattern1 = sin(vPosition.x * 20.0 + time * 2.5) * 0.6 + 0.4;
-            pattern2 = cos(vPosition.y * 18.0 + time * 2.0) * 0.5 + 0.5;
-            pattern3 = sin(vPosition.z * 25.0 + time * 3.0) * 0.55 + 0.45;
-            pattern4 = cos(length(vPosition.xy) * 15.0 + time * 2.2) * 0.4 + 0.6;
-          } else if (emotionType == 1) { // trust - gentle, warm, stable patches
-            pattern1 = sin(vPosition.x * 12.0 + time * 1.2) * 0.3 + 0.7;
-            pattern2 = cos(vPosition.y * 10.0 + time * 1.0) * 0.25 + 0.75;
-            pattern3 = sin(vPosition.z * 15.0 + time * 1.5) * 0.28 + 0.72;
-            pattern4 = cos(length(vPosition.xz) * 8.0 + time * 1.1) * 0.2 + 0.8;
-          } else if (emotionType == 2) { // fear - tense, fragmented, scattered
-            pattern1 = sin(vPosition.x * 35.0 + time * 3.5) * 0.7 + 0.3;
-            pattern2 = cos(vPosition.y * 32.0 + time * 3.0) * 0.6 + 0.4;
-            pattern3 = sin(vPosition.z * 40.0 + time * 4.0) * 0.65 + 0.35;
-            pattern4 = cos(length(vPosition.yz) * 30.0 + time * 3.2) * 0.5 + 0.5;
-          } else if (emotionType == 3) { // surprise - sudden, chaotic, explosive bursts
-            float burst = sin(time * 5.0) > 0.6 ? 2.5 : 0.15;
-            pattern1 = sin(vPosition.x * 45.0 + time * 6.0) * 0.8 * burst + 0.2;
-            pattern2 = cos(vPosition.y * 42.0 + time * 5.5) * 0.7 * burst + 0.3;
-            pattern3 = sin(vPosition.z * 50.0 + time * 7.0) * 0.75 * burst + 0.25;
-            pattern4 = cos(length(vPosition.xy) * 38.0 + time * 6.2) * 0.6 * burst + 0.4;
-          } else if (emotionType == 4) { // sadness - dim, sparse, minimal patches
-            pattern1 = sin(vPosition.x * 8.0 + time * 0.6) * 0.2 + 0.25;
-            pattern2 = cos(vPosition.y * 6.0 + time * 0.5) * 0.18 + 0.27;
-            pattern3 = sin(vPosition.z * 10.0 + time * 0.7) * 0.22 + 0.23;
-            pattern4 = cos(length(vPosition.xz) * 5.0 + time * 0.55) * 0.15 + 0.3;
-          } else if (emotionType == 5) { // anticipation - building, pulsing, growing patches
-            float build = 0.1 + 0.9 * sin(time * 1.8);
-            pattern1 = sin(vPosition.x * 18.0 + time * 1.8) * 0.4 * build + 0.3;
-            pattern2 = cos(vPosition.y * 16.0 + time * 1.5) * 0.35 * build + 0.35;
-            pattern3 = sin(vPosition.z * 22.0 + time * 2.0) * 0.38 * build + 0.32;
-            pattern4 = cos(length(vPosition.xy) * 14.0 + time * 1.6) * 0.3 * build + 0.4;
-          } else if (emotionType == 6) { // anger - violent, chaotic, erratic fragments
-            pattern1 = sin(vPosition.x * 28.0 + time * 4.0 + sin(time * 8.0)) * 0.8 + 0.6;
-            pattern2 = cos(vPosition.y * 25.0 + time * 3.5 + cos(time * 7.0)) * 0.7 + 0.7;
-            pattern3 = sin(vPosition.z * 32.0 + time * 4.5 + sin(time * 9.0)) * 0.75 + 0.65;
-            pattern4 = cos(length(vPosition.yz) * 22.0 + time * 3.8) * 0.6 + 0.8;
-          } else { // disgust - twisted, irregular, uneven patches
-            pattern1 = sin(vPosition.x * 20.0 + vPosition.y * 6.0 + time * 1.8) * 0.4 + 0.25;
-            pattern2 = cos(vPosition.y * 18.0 + vPosition.z * 5.0 + time * 1.5) * 0.35 + 0.3;
-            pattern3 = sin(vPosition.z * 22.0 + vPosition.x * 7.0 + time * 2.0) * 0.38 + 0.27;
-            pattern4 = cos(length(vPosition.xy) * 16.0 + vPosition.z * 4.0 + time * 1.6) * 0.3 + 0.35;
+          if (emotionType == 0) { // joy - bright, flowing wisps
+            emotionWisp = sin(vPosition.x * 5.0 + time * 1.5) * 0.4 + 0.6;
+          } else if (emotionType == 1) { // trust - gentle, stable wisps
+            emotionWisp = sin(vPosition.x * 3.0 + time * 0.8) * 0.2 + 0.7;
+          } else if (emotionType == 2) { // fear - fragmented wisps
+            emotionWisp = sin(vPosition.x * 8.0 + time * 2.0) * 0.5 + 0.3;
+          } else if (emotionType == 3) { // surprise - explosive wisps
+            float burst = sin(time * 2.5) > 0.6 ? 1.2 : 0.2;
+            emotionWisp = sin(vPosition.x * 10.0 + time * 3.0) * 0.6 * burst + 0.2;
+          } else if (emotionType == 4) { // sadness - fading wisps
+            emotionWisp = sin(vPosition.x * 2.0 + time * 0.4) * 0.15 + 0.3;
+          } else if (emotionType == 5) { // anticipation - gathering wisps
+            float gather = 0.3 + 0.7 * sin(time * 1.0);
+            emotionWisp = sin(vPosition.x * 4.0 + time * 1.2) * 0.3 * gather + 0.4;
+          } else if (emotionType == 6) { // anger - chaotic wisps
+            emotionWisp = sin(vPosition.x * 7.0 + time * 2.2 + sin(time * 5.0)) * 0.6 + 0.5;
+          } else { // disgust - irregular wisps
+            emotionWisp = sin(vPosition.x * 4.5 + vPosition.y * 1.5 + time * 1.0) * 0.3 + 0.4;
           }
           
-          // Combine all patterns for extremely uneven effect
-          float unevenIntensity = fragmentPattern * chaos1 * chaos2 * chaos3 * chaos4 * pattern1 * pattern2 * pattern3 * pattern4;
-          
-          // Mouse reactive enhancement
+          // Mouse creates wispy disturbance
           float mouseDistance = length(vPosition.xy - mousePos);
-          float mouseEffect = 1.0 + exp(-mouseDistance * 2.5) * 1.0;
+          float mouseWispGlow = 1.0 + exp(-mouseDistance * 1.5) * 0.5;
           
-          // Create multiple thresholds for highly uneven fragments
-          float threshold1 = 0.2 + 0.3 * noise(vPosition.xy * 10.0 + time * 0.4);
-          float threshold2 = 0.25 + 0.35 * noise(vPosition.xz * 12.0 + time * 0.6);
-          float threshold3 = 0.3 + 0.4 * noise(vPosition.yz * 14.0 + time * 0.5);
+          // Atmospheric breathing
+          float breathe = 0.6 + 0.4 * sin(time * 1.2);
           
-          float combinedThreshold = (threshold1 + threshold2 + threshold3) / 3.0;
-          float unevenMask = step(combinedThreshold, unevenIntensity);
-          
-          // Dynamic pulsing with uneven timing
-          float pulse1 = 0.4 + 0.6 * sin(time * 2.2 + vPosition.x * 10.0);
-          float pulse2 = 0.3 + 0.7 * cos(time * 1.8 + vPosition.y * 8.0);
-          float pulse3 = 0.5 + 0.5 * sin(time * 2.5 + vPosition.z * 12.0);
-          float combinedPulse = (pulse1 * pulse2 + pulse3) * 0.5;
-          
-          // Final extremely uneven, fragmented, organic intensity
-          float finalIntensity = fresnel * unevenMask * unevenIntensity * mouseEffect * combinedPulse * emotionIntensity * 0.5;
+          // Final wispy atmospheric intensity
+          float finalIntensity = fresnel * wispyPattern * emotionWisp * mouseWispGlow * breathe * emotionIntensity * 0.5;
           
           gl_FragColor = vec4(glowColor, finalIntensity);
         }
@@ -636,11 +512,117 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
       blending: THREE.AdditiveBlending
     });
 
-    const outerGlowMesh = new THREE.Mesh(outerGlowGeometry, outerGlowMaterial);
-    wavyGlowRef.current = outerGlowMesh;
-    scene.add(outerGlowMesh);
+    const outerAtmosphereMesh = new THREE.Mesh(outerAtmosphereGeometry, outerAtmosphereMaterial);
+    outerAtmosphereRef.current = outerAtmosphereMesh;
+    scene.add(outerAtmosphereMesh);
 
-    // Enhanced star field - SAME AS HERO PAGE
+    // LAYER 3: CORONA - Reduced from 1.0 to 0.82 (much more compact)
+    const coronaGeometry = new THREE.SphereGeometry(0.82, 32, 32);
+    const coronaMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        glowColor: { value: emotionColor },
+        mousePos: { value: new THREE.Vector2(0, 0) },
+        emotionIntensity: { value: 0.3 },
+        emotionType: { value: emotionMap[currentEmotion] || 0 }
+      },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        uniform float time;
+        uniform int emotionType;
+        
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vPosition = position;
+          
+          vec3 pos = position;
+          
+          // Subtle corona fluctuations based on emotion - reduced displacement
+          float coronaWave;
+          
+          if (emotionType == 0) { // joy - gentle expansion
+            coronaWave = sin(time * 0.5 + length(pos) * 2.0) * 0.015; // Reduced from 0.02
+          } else if (emotionType == 1) { // trust - stable corona
+            coronaWave = sin(time * 0.3 + length(pos) * 1.5) * 0.01; // Reduced from 0.015
+          } else if (emotionType == 2) { // fear - contracting corona
+            coronaWave = sin(time * 1.0 + length(pos) * 3.0) * 0.008; // Reduced from 0.01
+          } else if (emotionType == 3) { // surprise - pulsing corona
+            coronaWave = sin(time * 2.0 + length(pos) * 4.0) * 0.02; // Reduced from 0.03
+          } else if (emotionType == 4) { // sadness - fading corona
+            coronaWave = sin(time * 0.2 + length(pos) * 1.0) * 0.006; // Reduced from 0.008
+          } else if (emotionType == 5) { // anticipation - building corona
+            float build = 0.5 + 0.5 * sin(time * 0.8);
+            coronaWave = sin(time * 0.6 + length(pos) * 2.5) * 0.015 * build; // Reduced from 0.02
+          } else if (emotionType == 6) { // anger - chaotic corona
+            coronaWave = sin(time * 1.5 + length(pos) * 3.5 + sin(time * 3.0)) * 0.018; // Reduced from 0.025
+          } else { // disgust - irregular corona
+            coronaWave = sin(time * 0.7 + length(pos) * 2.2) * 0.009; // Reduced from 0.012
+          }
+          
+          pos += normal * coronaWave;
+          
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        uniform float time;
+        uniform vec3 glowColor;
+        uniform vec2 mousePos;
+        uniform float emotionIntensity;
+        uniform int emotionType;
+        
+        void main() {
+          // Subtle corona fresnel
+          float fresnel = 1.0 - abs(dot(vNormal, vec3(0, 0, 1.0)));
+          fresnel = pow(fresnel, 3.5);
+          
+          // Emotion-based corona intensity
+          float coronaIntensity;
+          
+          if (emotionType == 0) { // joy - bright corona
+            coronaIntensity = 0.8;
+          } else if (emotionType == 1) { // trust - warm corona
+            coronaIntensity = 0.7;
+          } else if (emotionType == 2) { // fear - dim corona
+            coronaIntensity = 0.4;
+          } else if (emotionType == 3) { // surprise - pulsing corona
+            coronaIntensity = 0.5 + 0.3 * sin(time * 3.0);
+          } else if (emotionType == 4) { // sadness - faint corona
+            coronaIntensity = 0.3;
+          } else if (emotionType == 5) { // anticipation - building corona
+            coronaIntensity = 0.4 + 0.4 * sin(time * 1.0);
+          } else if (emotionType == 6) { // anger - intense corona
+            coronaIntensity = 0.9;
+          } else { // disgust - muted corona
+            coronaIntensity = 0.5;
+          }
+          
+          // Mouse creates subtle corona enhancement
+          float mouseDistance = length(vPosition.xy - mousePos);
+          float mouseCorona = 1.0 + exp(-mouseDistance * 1.0) * 0.3;
+          
+          // Gentle breathing effect
+          float breathe = 0.8 + 0.2 * sin(time * 0.8);
+          
+          // Final corona intensity
+          float finalIntensity = fresnel * coronaIntensity * mouseCorona * breathe * emotionIntensity * 0.2; // Reduced from 0.25
+          
+          gl_FragColor = vec4(glowColor, finalIntensity);
+        }
+      `,
+      transparent: true,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending
+    });
+
+    const coronaMesh = new THREE.Mesh(coronaGeometry, coronaMaterial);
+    coronaRef.current = coronaMesh;
+    scene.add(coronaMesh);
+
+    // Enhanced star field
     const starCount = 1200;
     const starGeometry = new THREE.BufferGeometry();
     const starPositions = new Float32Array(starCount * 3);
@@ -715,17 +697,15 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
       const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-      // Update mouse position for glow effects
+      // Update mouse position for atmospheric effects
       setMousePosition({ x: mouseX, y: mouseY });
 
-      // Update both glow materials with mouse position
-      if (glowRef.current && glowRef.current.material && 'uniforms' in glowRef.current.material) {
-        (glowRef.current.material as THREE.ShaderMaterial).uniforms.mousePos.value.set(mouseX, mouseY);
-      }
-      
-      if (wavyGlowRef.current && wavyGlowRef.current.material && 'uniforms' in wavyGlowRef.current.material) {
-        (wavyGlowRef.current.material as THREE.ShaderMaterial).uniforms.mousePos.value.set(mouseX, mouseY);
-      }
+      // Update all atmospheric materials with mouse position
+      [innerAtmosphereRef, outerAtmosphereRef, coronaRef].forEach(ref => {
+        if (ref.current && ref.current.material && 'uniforms' in ref.current.material) {
+          (ref.current.material as THREE.ShaderMaterial).uniforms.mousePos.value.set(mouseX, mouseY);
+        }
+      });
 
       // Subtle mouse following effect for globe
       if (globeRef.current) {
@@ -737,30 +717,28 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
     renderer.domElement.addEventListener('click', handleClick);
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
 
-    // Animation loop
+    // Animation loop with FASTER rotation
     const animationLoop = () => {
       requestAnimationFrame(animationLoop);
 
-      const time = Date.now() * 0.0005; // HALVED SPEED
+      const time = Date.now() * 0.0005;
 
-      if (globeRef.current && glowRef.current && wavyGlowRef.current) {
-        // SLOWER rotation when not animating
-        globeRef.current.rotation.y += 0.00025; // HALVED from 0.0005
-        
-        // Update both glow animations
-        if (glowRef.current.material && 'uniforms' in glowRef.current.material) {
-          (glowRef.current.material as THREE.ShaderMaterial).uniforms.time.value = time;
-        }
-        
-        if (wavyGlowRef.current.material && 'uniforms' in wavyGlowRef.current.material) {
-          (wavyGlowRef.current.material as THREE.ShaderMaterial).uniforms.time.value = time;
-        }
+      if (globeRef.current) {
+        // FASTER Globe rotation - increased from 0.00025 to 0.001 (4x faster)
+        globeRef.current.rotation.y += 0.001;
       }
 
-      // Animate stars (slower) - SAME AS HERO PAGE
+      // Update all atmospheric animations
+      [innerAtmosphereRef, outerAtmosphereRef, coronaRef].forEach(ref => {
+        if (ref.current && ref.current.material && 'uniforms' in ref.current.material) {
+          (ref.current.material as THREE.ShaderMaterial).uniforms.time.value = time;
+        }
+      });
+
+      // Animate stars (also faster) - increased from 0.00005 to 0.0002 (4x faster)
       if (starsRef.current) {
-        starsRef.current.rotation.y += 0.00005; // HALVED from 0.0001
-        starsRef.current.rotation.x += 0.000025; // HALVED from 0.00005
+        starsRef.current.rotation.y += 0.0002;
+        starsRef.current.rotation.x += 0.0001;
       }
 
       renderer.render(scene, camera);
@@ -791,7 +769,7 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
     };
   }, [currentEmotion, router]);
 
-  // Update glow colors when emotion changes
+  // Update atmospheric colors when emotion changes
   useEffect(() => {
     const emotionTheme = getEmotionTheme(currentEmotion);
     const emotionColor = new THREE.Color(emotionTheme.color);
@@ -801,18 +779,16 @@ export default function ThreeGlobe({ className = '', onGlobeClick }: ThreeGlobeP
       'sadness': 4, 'anticipation': 5, 'anger': 6, 'disgust': 7
     };
 
-    // Update glow materials with new emotion
-    if (glowRef.current && glowRef.current.material && 'uniforms' in glowRef.current.material) {
-      const material = glowRef.current.material as THREE.ShaderMaterial;
-      material.uniforms.glowColor.value = emotionColor;
-      material.uniforms.emotionType.value = emotionMap[currentEmotion] || 0;
-    }
-    
-    if (wavyGlowRef.current && wavyGlowRef.current.material && 'uniforms' in wavyGlowRef.current.material) {
-      const material = wavyGlowRef.current.material as THREE.ShaderMaterial;
-      material.uniforms.glowColor.value = emotionColor;
-      material.uniforms.emotionType.value = emotionMap[currentEmotion] || 0;
-    }
+    console.log(`🌍 Globe: Updating COMPACT ATMOSPHERIC LAYERS for emotion: ${currentEmotion} (${emotionTheme.color})`);
+
+    // Update all atmospheric materials with new emotion
+    [innerAtmosphereRef, outerAtmosphereRef, coronaRef].forEach(ref => {
+      if (ref.current && ref.current.material && 'uniforms' in ref.current.material) {
+        const material = ref.current.material as THREE.ShaderMaterial;
+        material.uniforms.glowColor.value = emotionColor;
+        material.uniforms.emotionType.value = emotionMap[currentEmotion] || 0;
+      }
+    });
   }, [currentEmotion]);
 
   return (

@@ -43,10 +43,13 @@ export const fetchDominantEmotion = createAsyncThunk(
   'emotion/fetchDominantEmotion',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('Fetching dominant emotion from database...');
       const emotion = await getCurrentDominantEmotion();
+      console.log(`Dominant emotion fetched: ${emotion}`);
       return emotion;
-    } catch (error) {
-      return rejectWithValue('Failed to fetch dominant emotion');
+    } catch (error: any) {
+      console.error('Error fetching dominant emotion:', error);
+      return rejectWithValue(error.message || 'Failed to fetch dominant emotion');
     }
   }
 );
@@ -61,12 +64,23 @@ export const checkAndUpdateEmotion = createAsyncThunk(
     const now = new Date().getTime();
     const lastUpdateTime = lastUpdated ? new Date(lastUpdated).getTime() : 0;
     
-    // Check if an hour has passed since last update
-    if (now - lastUpdateTime >= updateInterval) {
+    // Check if an hour has passed since last update OR if this is the first load
+    if (now - lastUpdateTime >= updateInterval || !lastUpdated) {
+      console.log('Emotion update needed, fetching fresh data...');
       return dispatch(fetchDominantEmotion());
     }
     
+    console.log('Emotion data is still fresh, using cached data');
     return null;
+  }
+);
+
+// NEW: Force immediate emotion update (for app startup)
+export const forceEmotionUpdate = createAsyncThunk(
+  'emotion/forceUpdate',
+  async (_, { dispatch }) => {
+    console.log('Forcing immediate emotion update...');
+    return dispatch(fetchDominantEmotion());
   }
 );
 
@@ -114,6 +128,8 @@ const emotionSlice = createSlice({
       state.octantDominantEmotion = dominantEmotion;
       state.dominantEmotion = dominantEmotion; // Update main dominant emotion too
       state.lastUpdated = new Date().toISOString();
+      
+      console.log(`Octant emotions updated: ${dominantEmotion} is dominant with ${maxCount} articles`);
     },
     clearError: (state) => {
       state.error = null;
@@ -131,10 +147,23 @@ const emotionSlice = createSlice({
       .addCase(fetchDominantEmotion.fulfilled, (state, action) => {
         state.isLoading = false;
         state.dominantEmotion = action.payload;
+        state.octantDominantEmotion = action.payload; // Also update octant emotion
         state.lastUpdated = new Date().toISOString();
         state.error = null;
       })
       .addCase(fetchDominantEmotion.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Handle force update
+      .addCase(forceEmotionUpdate.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(forceEmotionUpdate.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(forceEmotionUpdate.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       });

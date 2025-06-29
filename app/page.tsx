@@ -6,22 +6,33 @@ import ThreeGlobe from '@/components/three/ThreeGlobe';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
 import { getEmotionTheme, EmotionType, EMOTIONS } from '@/lib/emotions';
-import { useAppSelector } from '@/lib/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
+import { forceEmotionUpdate } from '@/lib/store/slices/emotionSlice';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles, Brain, Globe, TrendingUp, MessageCircle, Clock, BarChart3, Eye, Orbit } from 'lucide-react';
+import { ArrowRight, Sparkles, Brain, Globe, TrendingUp, MessageCircle, Clock, BarChart3, Eye, Orbit, ChevronDown } from 'lucide-react';
 
 export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   // Get current emotion from Redux store (octant-driven)
-  const { dominantEmotion, octantDominantEmotion, octantEmotionDistribution } = useAppSelector(state => state.emotion);
+  const { dominantEmotion, octantDominantEmotion, octantEmotionDistribution, isLoading: emotionLoading } = useAppSelector(state => state.emotion);
   
-  // Use octant dominant emotion for the Earth's glow
+  // Use octant dominant emotion for the Earth's glow, fallback to regular dominant emotion
   const currentEmotion = octantDominantEmotion || dominantEmotion;
+
+  // Force emotion update if we don't have fresh data
+  useEffect(() => {
+    // If we don't have any emotion data or it's still loading, force an update
+    if (!dominantEmotion || emotionLoading) {
+      console.log('🏠 Landing page: Forcing emotion update for immediate display');
+      dispatch(forceEmotionUpdate());
+    }
+  }, [dispatch, dominantEmotion, emotionLoading]);
 
   useEffect(() => {
     // Simulate loading
@@ -182,43 +193,64 @@ export default function Home() {
         </div>
         
         <div className="relative z-10 pt-16">
-          {/* Hero Section */}
+          {/* Hero Section - Mobile Responsive */}
           <section className="min-h-screen relative overflow-hidden">
-            {/* Hero Layout - Split Design */}
-            <div className="flex flex-col lg:flex-row items-center min-h-screen relative z-20">
-              {/* Left Side - Hero Content */}
-              <div className="w-full lg:w-1/2 px-4 lg:px-16 relative z-30 order-2 lg:order-1">
+            {/* Mobile-First Hero Layout */}
+            <div className="flex flex-col min-h-screen relative z-20">
+              
+              {/* Mobile: Globe First (Top) */}
+              <div className="w-full h-64 sm:h-80 md:h-96 lg:h-screen lg:w-1/2 lg:absolute lg:right-0 lg:top-0 relative flex-shrink-0">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-full h-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-2xl max-h-xs sm:max-h-sm md:max-h-md lg:max-h-2xl">
+                    <ThreeGlobe onGlobeClick={handleGlobeClick} />
+                  </div>
+                </div>
+                
+                {/* Globe interaction hint - Mobile positioned */}
+                <div className="absolute bottom-2 sm:bottom-4 lg:bottom-20 left-1/2 transform -translate-x-1/2 glass-card animate-bounce z-30">
+                  <div className="px-3 py-2 lg:px-6 lg:py-3 text-xs sm:text-sm lg:text-sm text-white/80 flex items-center">
+                    <Orbit className="h-3 w-3 sm:h-4 sm:w-4 lg:h-4 lg:w-4 mr-1 sm:mr-2 lg:mr-2" />
+                    <span className="hidden sm:inline">Click the Earth to explore octants</span>
+                    <span className="sm:hidden">Tap to explore</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile: Content Second (Bottom) */}
+              <div className="flex-1 lg:w-1/2 px-4 sm:px-6 lg:px-16 py-8 lg:py-0 lg:flex lg:items-center relative z-30">
                 {/* Main Hero Content */}
-                <div className="mb-8 lg:mb-12 text-center lg:text-left">
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-6 lg:mb-8 text-glow bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-100 to-white animate-breathe">
+                <div className="w-full text-center lg:text-left">
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 lg:mb-8 text-glow bg-clip-text text-transparent bg-gradient-to-r from-white via-gray-100 to-white animate-breathe">
                     Symbione
                   </h1>
                   
-                  <p className="text-lg md:text-xl lg:text-2xl xl:text-3xl text-white/90 mb-6 lg:mb-8 font-light">
+                  <p className="text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl text-white/90 mb-4 sm:mb-6 lg:mb-8 font-light">
                     Emotionally Intelligent News Platform
                   </p>
                   
-                  <p className="text-base md:text-lg lg:text-xl text-white/70 mb-8 lg:mb-12 max-w-2xl leading-relaxed mx-auto lg:mx-0">
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white/70 mb-6 sm:mb-8 lg:mb-12 max-w-2xl leading-relaxed mx-auto lg:mx-0">
                     Experience news through the lens of emotion. Our AI-powered platform analyzes global news sentiment, 
                     revealing the emotional landscape of world events through stunning 3D visualizations.
                   </p>
 
-                  {/* Current Emotion Display - Now Octant-Driven */}
-                  <Card className="max-w-lg mx-auto lg:mx-0 glass-card border-white/30 hover-glow animate-float mb-8 lg:mb-12 backdrop-blur-md">
-                    <CardContent className="p-6 lg:p-8">
-                      <div className="flex items-center justify-center space-x-3 mb-4">
+                  {/* Current Emotion Display - Mobile Optimized */}
+                  <Card className="max-w-lg mx-auto lg:mx-0 glass-card border-white/30 hover-glow animate-float mb-6 sm:mb-8 lg:mb-12 backdrop-blur-md">
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
+                      <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
                         <div 
-                          className="w-4 h-4 rounded-full animate-pulse shadow-lg"
+                          className="w-3 h-3 sm:w-4 sm:h-4 rounded-full animate-pulse shadow-lg"
                           style={{ 
                             backgroundColor: emotionTheme.color,
                             boxShadow: `0 0 20px ${emotionTheme.color}60`
                           }}
                         />
-                        <span className="text-white/80 font-medium text-sm lg:text-base">Octant Dominant Emotion</span>
+                        <span className="text-white/80 font-medium text-xs sm:text-sm lg:text-base">
+                          {emotionLoading ? 'Analyzing...' : 'Live Database Emotion'}
+                        </span>
                       </div>
                       <Badge 
                         variant="outline" 
-                        className="glass-button border-white/40 text-white text-lg lg:text-xl px-6 lg:px-8 py-2 lg:py-3 animate-pulse-glow font-semibold"
+                        className="glass-button border-white/40 text-white text-sm sm:text-lg lg:text-xl px-4 sm:px-6 lg:px-8 py-2 lg:py-3 animate-pulse-glow font-semibold"
                         style={{ 
                           borderColor: emotionTheme.color + '60',
                           boxShadow: `0 0 30px ${emotionTheme.color}30`
@@ -226,27 +258,30 @@ export default function Home() {
                       >
                         {emotionTheme.name}
                       </Badge>
-                      <p className="text-xs lg:text-sm text-white/60 mt-4 font-medium">
-                        {isLoaded ? (
+                      <p className="text-xs sm:text-xs lg:text-sm text-white/60 mt-3 sm:mt-4 font-medium">
+                        {emotionLoading ? (
+                          'Fetching live emotion data from database...'
+                        ) : (
                           totalOctantArticles > 0 
-                            ? `Based on ${totalOctantArticles} articles in 3D octant space`
-                            : 'Live analysis of global news sentiment'
-                        ) : 'Analyzing emotional patterns...'}
+                            ? `Based on ${totalOctantArticles} articles from your database`
+                            : 'Live analysis of global news sentiment from database'
+                        )}
                       </p>
                     </CardContent>
                   </Card>
 
-                  {/* CTA Buttons */}
-                  <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 lg:space-x-8">
+                  {/* CTA Buttons - Mobile Stacked */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-3 sm:space-y-0 sm:space-x-4 lg:space-x-8">
                     <Button 
                       size="lg" 
                       onClick={() => router.push('/octants')}
-                      className="glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white px-6 lg:px-10 py-4 lg:py-5 text-lg lg:text-xl premium-hover btn-shimmer backdrop-blur-md w-full sm:w-auto"
+                      className="glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white px-6 sm:px-8 lg:px-10 py-3 sm:py-4 lg:py-5 text-base sm:text-lg lg:text-xl premium-hover btn-shimmer backdrop-blur-md w-full sm:w-auto"
                     >
                       <span className="flex items-center">
-                        <Eye className="h-5 w-5 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
-                        Explore 3D Visualization
-                        <ArrowRight className="h-5 w-5 lg:h-6 lg:w-6 ml-2 lg:ml-3" />
+                        <Eye className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                        <span className="hidden sm:inline">Explore 3D Visualization</span>
+                        <span className="sm:hidden">Explore 3D</span>
+                        <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 ml-2 lg:ml-3" />
                       </span>
                     </Button>
                     
@@ -254,28 +289,19 @@ export default function Home() {
                       variant="outline" 
                       size="lg"
                       onClick={() => router.push('/trending')}
-                      className="glass-button border-white/40 text-white hover:bg-white/15 px-6 lg:px-10 py-4 lg:py-5 text-lg lg:text-xl premium-hover backdrop-blur-md w-full sm:w-auto"
+                      className="glass-button border-white/40 text-white hover:bg-white/15 px-6 sm:px-8 lg:px-10 py-3 sm:py-4 lg:py-5 text-base sm:text-lg lg:text-xl premium-hover backdrop-blur-md w-full sm:w-auto"
                     >
-                      <TrendingUp className="h-5 w-5 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
-                      View Trending News
+                      <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 lg:mr-3" />
+                      <span className="hidden sm:inline">View Trending News</span>
+                      <span className="sm:hidden">Trending</span>
                     </Button>
                   </div>
-                </div>
-              </div>
 
-              {/* Right Side - 3D Globe (Now Emotion-Reactive) */}
-              <div className="w-full lg:w-1/2 h-64 md:h-96 lg:h-screen relative order-1 lg:order-2">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-full h-full max-w-md lg:max-w-2xl max-h-md lg:max-h-2xl">
-                    <ThreeGlobe onGlobeClick={handleGlobeClick} />
-                  </div>
-                </div>
-                
-                {/* Globe interaction hint */}
-                <div className="absolute bottom-4 lg:bottom-20 left-1/2 transform -translate-x-1/2 glass-card animate-bounce z-30">
-                  <div className="px-4 lg:px-6 py-2 lg:py-3 text-xs lg:text-sm text-white/80 flex items-center">
-                    <Orbit className="h-3 w-3 lg:h-4 lg:w-4 mr-1 lg:mr-2" />
-                    Click the Earth to explore octants
+                  {/* Mobile Scroll Indicator */}
+                  <div className="lg:hidden mt-8 flex justify-center">
+                    <div className="animate-bounce">
+                      <ChevronDown className="h-6 w-6 text-white/60" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -292,37 +318,38 @@ export default function Home() {
             )}
           </section>
 
-          {/* Features Section */}
-          <section className="py-16 lg:py-32 px-4 relative">
+          {/* Features Section - Mobile Grid */}
+          <section className="py-12 sm:py-16 lg:py-32 px-4 relative">
             <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-black/80"></div>
             
             <div className="max-w-7xl mx-auto relative z-10">
-              <div className="text-center mb-12 lg:mb-20">
-                <h2 className="text-3xl md:text-4xl lg:text-6xl font-bold mb-6 lg:mb-8 text-glow">
+              <div className="text-center mb-8 sm:mb-12 lg:mb-20">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-6xl font-bold mb-4 sm:mb-6 lg:mb-8 text-glow">
                   Powerful Features
                 </h2>
-                <p className="text-lg md:text-xl lg:text-2xl text-white/80 max-w-4xl mx-auto leading-relaxed">
+                <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 max-w-4xl mx-auto leading-relaxed">
                   Discover how Symbione transforms the way you understand and interact with global news
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+              {/* Mobile: 1 column, Tablet: 2 columns, Desktop: 3 columns */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                 {features.map((feature, index) => (
                   <Card 
                     key={index} 
                     className="glass-card border-white/20 hover-glow premium-hover cursor-pointer group backdrop-blur-md"
                     onClick={() => router.push(feature.href)}
                   >
-                    <CardContent className="p-6 lg:p-10">
-                      <div className="flex items-center mb-4 lg:mb-6">
-                        <div className="p-3 lg:p-4 rounded-xl glass-button mr-3 lg:mr-4 group-hover:scale-110 transition-transform">
-                          <feature.icon className="h-6 w-6 lg:h-8 lg:w-8 text-white" />
+                    <CardContent className="p-4 sm:p-6 lg:p-10">
+                      <div className="flex items-center mb-3 sm:mb-4 lg:mb-6">
+                        <div className="p-2 sm:p-3 lg:p-4 rounded-xl glass-button mr-2 sm:mr-3 lg:mr-4 group-hover:scale-110 transition-transform">
+                          <feature.icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-white" />
                         </div>
-                        <h3 className="text-lg lg:text-2xl font-semibold text-white group-hover:text-glow transition-all">
+                        <h3 className="text-base sm:text-lg lg:text-2xl font-semibold text-white group-hover:text-glow transition-all">
                           {feature.title}
                         </h3>
                       </div>
-                      <p className="text-white/80 leading-relaxed text-sm lg:text-lg">
+                      <p className="text-white/80 leading-relaxed text-xs sm:text-sm lg:text-lg">
                         {feature.description}
                       </p>
                     </CardContent>
@@ -332,46 +359,47 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Emotion Spectrum Preview */}
-          <section className="py-16 lg:py-32 px-4 relative">
+          {/* Emotion Spectrum Preview - Mobile Responsive */}
+          <section className="py-12 sm:py-16 lg:py-32 px-4 relative">
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/80"></div>
             
             <div className="max-w-6xl mx-auto relative z-10">
-              <div className="text-center mb-12 lg:mb-20">
-                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 lg:mb-8 text-glow">
+              <div className="text-center mb-8 sm:mb-12 lg:mb-20">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 lg:mb-8 text-glow">
                   Emotion Spectrum
                 </h2>
-                <p className="text-lg md:text-xl lg:text-2xl text-white/80">
+                <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80">
                   Eight core emotions that shape our understanding of global news
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-8">
+              {/* Mobile: 2 columns, Tablet: 4 columns, Desktop: 4 columns */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 lg:gap-8">
                 {Object.entries(EMOTIONS).map(([key, emotion], index) => (
                   <Card 
                     key={key} 
                     className="glass-card border-white/20 hover-glow premium-hover group cursor-pointer backdrop-blur-md"
                     onClick={() => router.push('/octants')}
                   >
-                    <CardContent className="p-4 lg:p-8 text-center">
+                    <CardContent className="p-3 sm:p-4 lg:p-8 text-center">
                       <div 
-                        className="w-12 h-12 lg:w-20 lg:h-20 rounded-full mx-auto mb-4 lg:mb-6 flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl"
+                        className="w-8 h-8 sm:w-12 sm:h-12 lg:w-20 lg:h-20 rounded-full mx-auto mb-2 sm:mb-4 lg:mb-6 flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl"
                         style={{ 
                           backgroundColor: emotion.color,
                           boxShadow: `0 0 40px ${emotion.color}50, inset 0 4px 8px rgba(255,255,255,0.2)`
                         }}
                       >
-                        <div className="w-6 h-6 lg:w-10 lg:h-10 rounded-full bg-white/30 animate-pulse" />
+                        <div className="w-3 h-3 sm:w-6 sm:h-6 lg:w-10 lg:h-10 rounded-full bg-white/30 animate-pulse" />
                       </div>
-                      <h3 className="text-sm lg:text-xl font-semibold text-white mb-2 lg:mb-3 group-hover:text-glow transition-all">
+                      <h3 className="text-xs sm:text-sm lg:text-xl font-semibold text-white mb-1 sm:mb-2 lg:mb-3 group-hover:text-glow transition-all">
                         {emotion.name}
                       </h3>
-                      <div className="text-xs lg:text-sm text-white/60 uppercase tracking-wider font-medium">
+                      <div className="text-xs sm:text-xs lg:text-sm text-white/60 uppercase tracking-wider font-medium">
                         {emotion.motionType}
                       </div>
                       {/* Show count if available */}
                       {octantEmotionDistribution[key as EmotionType] > 0 && (
-                        <div className="text-xs text-white/40 mt-2">
+                        <div className="text-xs text-white/40 mt-1 sm:mt-2">
                           {octantEmotionDistribution[key as EmotionType]} articles
                         </div>
                       )}
@@ -382,28 +410,28 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Footer CTA */}
-          <section className="py-16 lg:py-32 px-4 relative">
+          {/* Footer CTA - Mobile Responsive */}
+          <section className="py-12 sm:py-16 lg:py-32 px-4 relative">
             <div className="absolute inset-0 bg-gradient-to-b from-black/80 to-black"></div>
             
             <div className="max-w-4xl mx-auto text-center relative z-10">
               <Card className="glass-card border-white/30 hover-glow animate-breathe backdrop-blur-md">
-                <CardContent className="p-8 lg:p-16">
-                  <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 lg:mb-8 text-glow">
+                <CardContent className="p-6 sm:p-8 lg:p-16">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 lg:mb-8 text-glow">
                     Ready to Explore?
                   </h2>
-                  <p className="text-lg md:text-xl lg:text-2xl text-white/80 mb-8 lg:mb-12 leading-relaxed">
+                  <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-white/80 mb-6 sm:mb-8 lg:mb-12 leading-relaxed">
                     Dive into the emotional dimension of global news and discover patterns you never knew existed.
                   </p>
                   <Button 
                     size="lg" 
                     onClick={() => router.push('/octants')}
-                    className="glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white px-8 lg:px-16 py-4 lg:py-6 text-lg lg:text-xl premium-hover btn-shimmer backdrop-blur-md"
+                    className="glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white px-6 sm:px-8 lg:px-16 py-3 sm:py-4 lg:py-6 text-base sm:text-lg lg:text-xl premium-hover btn-shimmer backdrop-blur-md w-full sm:w-auto"
                   >
                     <span className="flex items-center">
-                      <Brain className="h-6 w-6 lg:h-8 lg:w-8 mr-3 lg:mr-4" />
+                      <Brain className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mr-2 sm:mr-3 lg:mr-4" />
                       Start Your Journey
-                      <ArrowRight className="h-6 w-6 lg:h-8 lg:w-8 ml-3 lg:ml-4" />
+                      <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 ml-2 sm:ml-3 lg:ml-4" />
                     </span>
                   </Button>
                 </CardContent>
@@ -411,14 +439,14 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Footer */}
-          <footer className="py-8 lg:py-16 px-4 border-t border-white/20 relative">
+          {/* Footer - Mobile Responsive */}
+          <footer className="py-6 sm:py-8 lg:py-16 px-4 border-t border-white/20 relative">
             <div className="absolute inset-0 bg-black/90"></div>
             <div className="max-w-6xl mx-auto text-center relative z-10">
-              <p className="text-white/60 text-sm lg:text-lg mb-2 lg:mb-3">
+              <p className="text-white/60 text-xs sm:text-sm lg:text-lg mb-1 sm:mb-2 lg:mb-3">
                 Powered by emotional intelligence • Real-time news analysis • Interactive 3D visualization
               </p>
-              <p className="text-white/40 text-xs lg:text-sm">
+              <p className="text-white/40 text-xs sm:text-xs lg:text-sm">
                 © 2024 Symbione. Transforming how we understand global news through emotion.
               </p>
             </div>

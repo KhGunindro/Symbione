@@ -402,53 +402,6 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
           </div>
         </div>
       )}
-
-      {/* Premium Controls */}
-      <div className="absolute top-6 left-6 z-10">
-        <div className="glass-card border-white/20 hover-glow p-4 backdrop-blur-xl bg-gradient-to-br from-white/10 to-white/5">
-          <div className="text-white text-sm space-y-2">
-            <div className="font-semibold text-white/90 mb-3">Navigation Controls</div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-              <span className="text-white/70">Click and drag to rotate</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-              <span className="text-white/70">Scroll to zoom</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
-              <span className="text-white/70">Hover to highlight</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-              <span className="text-white/70">Click to read article</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Premium Origin Indicator */}
-      <div className="absolute top-6 right-6 z-10">
-        <div className="glass-card border-white/20 hover-glow p-4 backdrop-blur-xl bg-gradient-to-br from-white/10 to-white/5">
-          <div className="text-center">
-            <div className="text-white/90 font-semibold mb-2">Origin Point</div>
-            <div className="text-3xl font-mono text-blue-400 mb-1">(0,0,0)</div>
-            <div className="text-xs text-white/60">
-              {viewType === 'yearly' 
-                ? 'Top 8 highest intensity articles' 
-                : 'All particles clustered near center'
-              }
-            </div>
-            <div className="mt-3 flex justify-center space-x-1">
-              <div className="w-1 h-1 bg-red-400 rounded-full"></div>
-              <div className="w-1 h-1 bg-green-400 rounded-full"></div>
-              <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
-            </div>
-            <div className="text-xs text-white/50 mt-1">X Y Z axes</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

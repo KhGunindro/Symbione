@@ -6,7 +6,7 @@ interface NewsState {
   articles: ProcessedNewsArticle[];
   trendingArticles: ProcessedNewsArticle[];
   octantArticles: ProcessedNewsArticle[];
-  historicalOctantArticles: ProcessedNewsArticle[]; // NEW: Historical articles
+  historicalOctantArticles: ProcessedNewsArticle[];
   isLoading: boolean;
   error: string | null;
   lastFetchTime: string | null;
@@ -17,7 +17,7 @@ const initialState: NewsState = {
   articles: [],
   trendingArticles: [],
   octantArticles: [],
-  historicalOctantArticles: [], // NEW: Initialize empty
+  historicalOctantArticles: [],
   isLoading: false,
   error: null,
   lastFetchTime: null,
@@ -29,10 +29,13 @@ export const fetchTrendingNews = createAsyncThunk(
   'news/fetchTrending',
   async (limit: number = 50, { rejectWithValue }) => {
     try {
+      console.log(`Fetching ${limit} trending articles...`);
       const articles = await fetchTrendingArticles(limit);
+      console.log(`Successfully fetched ${articles.length} trending articles`);
       return articles;
-    } catch (error) {
-      return rejectWithValue('Failed to fetch trending articles');
+    } catch (error: any) {
+      console.error('Error fetching trending articles:', error);
+      return rejectWithValue(error.message || 'Failed to fetch trending articles');
     }
   }
 );
@@ -42,31 +45,37 @@ export const fetchOctantNews = createAsyncThunk(
   'news/fetchOctant',
   async (limit: number = 1000, { rejectWithValue, dispatch }) => {
     try {
+      console.log(`Fetching ${limit} octant articles...`);
       const articles = await fetchOctantArticles(limit);
+      console.log(`Successfully fetched ${articles.length} octant articles`);
       
       // Update octant emotions based on the fetched articles
       dispatch(updateOctantEmotions(articles));
       
       return articles;
-    } catch (error) {
-      return rejectWithValue('Failed to fetch octant articles');
+    } catch (error: any) {
+      console.error('Error fetching octant articles:', error);
+      return rejectWithValue(error.message || 'Failed to fetch octant articles');
     }
   }
 );
 
-// NEW: Fetch historical octant articles (top 8 highest intensity)
+// Fetch historical octant articles (top 8 highest intensity)
 export const fetchHistoricalOctantNews = createAsyncThunk(
   'news/fetchHistoricalOctant',
   async (_, { rejectWithValue, dispatch }) => {
     try {
+      console.log('Fetching historical octant articles...');
       const articles = await fetchHistoricalOctantArticles();
+      console.log(`Successfully fetched ${articles.length} historical octant articles`);
       
       // Update octant emotions based on the historical articles
       dispatch(updateOctantEmotions(articles));
       
       return articles;
-    } catch (error) {
-      return rejectWithValue('Failed to fetch historical octant articles');
+    } catch (error: any) {
+      console.error('Error fetching historical octant articles:', error);
+      return rejectWithValue(error.message || 'Failed to fetch historical octant articles');
     }
   }
 );
@@ -83,15 +92,23 @@ export const fetchAllNews = createAsyncThunk(
     
     // Check if cache is still valid
     if (now - lastFetch < cacheExpiry) {
+      console.log('Using cached news data');
       return null; // Use cached data
     }
     
+    console.log('Cache expired, fetching fresh news data...');
+    
     // Fetch fresh data
-    await Promise.all([
-      dispatch(fetchTrendingNews()),
-      dispatch(fetchOctantNews()),
-      dispatch(fetchHistoricalOctantNews()) // NEW: Also fetch historical data
-    ]);
+    try {
+      await Promise.all([
+        dispatch(fetchTrendingNews()),
+        dispatch(fetchOctantNews()),
+        dispatch(fetchHistoricalOctantNews())
+      ]);
+      console.log('All news data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing news data:', error);
+    }
     
     return true;
   }
@@ -111,7 +128,7 @@ const newsSlice = createSlice({
       state.articles = [];
       state.trendingArticles = [];
       state.octantArticles = [];
-      state.historicalOctantArticles = []; // NEW: Clear historical cache
+      state.historicalOctantArticles = [];
       state.lastFetchTime = null;
     },
     // Manual update of octant articles with emotion tracking
@@ -119,7 +136,7 @@ const newsSlice = createSlice({
       state.octantArticles = action.payload;
       state.lastFetchTime = new Date().toISOString();
     },
-    // NEW: Manual update of historical octant articles
+    // Manual update of historical octant articles
     updateHistoricalOctantArticles: (state, action: PayloadAction<ProcessedNewsArticle[]>) => {
       state.historicalOctantArticles = action.payload;
       state.lastFetchTime = new Date().toISOString();
@@ -155,7 +172,7 @@ const newsSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
       })
-      // NEW: Historical octant articles
+      // Historical octant articles
       .addCase(fetchHistoricalOctantNews.pending, (state) => {
         state.isLoading = true;
         state.error = null;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,9 @@ import {
   MessageCircle, 
   Clock, 
   LogIn, 
-  UserPlus 
+  UserPlus,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 const navigationItems = [
@@ -32,9 +34,57 @@ const authItems = [
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundLoaded, setSoundLoaded] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const pathname = usePathname();
 
   const isActive = (href: string) => pathname === href;
+
+  // Load button click sound
+  useEffect(() => {
+    const audio = new Audio('/sounds/buttonclick.mp3');
+    audio.preload = 'auto';
+    audio.volume = 0.5; // Adjust volume as needed
+    
+    // Handle loading
+    audio.addEventListener('canplaythrough', () => {
+      setSoundLoaded(true);
+    });
+    
+    audio.addEventListener('error', () => {
+      console.warn('Could not load button click sound');
+      setSoundLoaded(false);
+    });
+    
+    audioRef.current = audio;
+  }, []);
+
+  // Play button click sound
+  const playButtonSound = () => {
+    if (!soundEnabled || !soundLoaded || !audioRef.current) return;
+    
+    try {
+      (audioRef.current as HTMLAudioElement).currentTime = 0; // Reset to beginning
+      (audioRef.current as HTMLAudioElement).play().catch((error: unknown) => {
+        console.warn('Error playing button sound:', error);
+      });
+    } catch (error: unknown) {
+      console.warn('Error playing button sound:', error);
+    }
+  };
+
+  const handleMenuToggle = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const handleNavClick = () => {
+    setIsOpen(false);
+  };
+
+  const handleSoundToggle = () => {
+    setSoundEnabled(!soundEnabled);
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 px-4 py-3">
@@ -48,7 +98,10 @@ export default function Navigation() {
           <div className="relative px-6 py-4">
             <div className="flex items-center justify-between">
               {/* Logo */}
-              <Link href="/" className="flex items-center space-x-3 group">
+              <Link 
+                href="/" 
+                className="flex items-center space-x-3 group"
+              >
                 <div className="relative">
                   <Sparkles className="h-8 w-8 text-white group-hover:text-white/80 transition-all duration-300 group-hover:scale-110 animate-pulse" />
                   <div className="absolute inset-0 bg-white/20 rounded-full blur-lg group-hover:bg-white/30 transition-all duration-300"></div>
@@ -77,8 +130,12 @@ export default function Navigation() {
                             : 'text-white/70 hover:text-white hover:bg-white/10'
                           }
                         `}
+                        onClick={playButtonSound}
                       >
-                        <Link href={item.href} className="flex items-center space-x-2">
+                        <Link 
+                          href={item.href} 
+                          className="flex items-center space-x-2"
+                        >
                           <Icon className="h-4 w-4" />
                           <span>{item.label}</span>
                           {isActive(item.href) && (
@@ -92,6 +149,17 @@ export default function Navigation() {
 
                 {/* Separator */}
                 <div className="w-px h-6 bg-white/20 mx-2"></div>
+
+                {/* Sound Toggle Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 text-white/70 hover:text-white hover:bg-white/10 border border-white/20"
+                  onClick={handleSoundToggle}
+                  title={soundEnabled ? 'Disable Sounds' : 'Enable Sounds'}
+                >
+                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </Button>
 
                 {/* Auth Buttons */}
                 <div className="flex items-center space-x-2">
@@ -110,8 +178,12 @@ export default function Navigation() {
                             : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
                           }
                         `}
+                        onClick={playButtonSound}
                       >
-                        <Link href={item.href} className="flex items-center space-x-2">
+                        <Link 
+                          href={item.href} 
+                          className="flex items-center space-x-2"
+                        >
                           <Icon className="h-4 w-4" />
                           <span>{item.label}</span>
                         </Link>
@@ -126,7 +198,10 @@ export default function Navigation() {
                 variant="ghost"
                 size="sm"
                 className="md:hidden h-10 w-10 p-0 text-white hover:bg-white/10 border border-white/20"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                  playButtonSound();
+                  handleMenuToggle();
+                }}
               >
                 {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
@@ -156,9 +231,15 @@ export default function Navigation() {
                           : 'text-white/70 hover:text-white hover:bg-white/10'
                         }
                       `}
-                      onClick={() => setIsOpen(false)}
+                      onClick={() => {
+                        playButtonSound();
+                        handleNavClick();
+                      }}
                     >
-                      <Link href={item.href} className="flex items-center space-x-3 w-full">
+                      <Link 
+                        href={item.href} 
+                        className="flex items-center space-x-3 w-full"
+                      >
                         <Icon className="h-4 w-4" />
                         <span>{item.label}</span>
                       </Link>
@@ -169,6 +250,19 @@ export default function Navigation() {
 
               {/* Mobile Separator */}
               <div className="h-px bg-white/20 my-3"></div>
+
+              {/* Mobile Sound Toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start h-11 px-4 text-sm font-medium text-white/70 hover:text-white hover:bg-white/10"
+                onClick={handleSoundToggle}
+              >
+                <div className="flex items-center space-x-3 w-full">
+                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  <span>{soundEnabled ? 'Sound On' : 'Sound Off'}</span>
+                </div>
+              </Button>
 
               {/* Mobile Auth Buttons */}
               <div className="space-y-2">
@@ -187,9 +281,15 @@ export default function Navigation() {
                           : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
                         }
                       `}
-                      onClick={() => setIsOpen(false)}
+                      onClick={() => {
+                        playButtonSound();
+                        handleNavClick();
+                      }}
                     >
-                      <Link href={item.href} className="flex items-center space-x-3 w-full">
+                      <Link 
+                        href={item.href} 
+                        className="flex items-center space-x-3 w-full"
+                      >
                         <Icon className="h-4 w-4" />
                         <span>{item.label}</span>
                       </Link>

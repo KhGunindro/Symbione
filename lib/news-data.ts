@@ -31,7 +31,7 @@ export interface ProcessedNewsArticle {
   subreddit: string;
   emotion: EmotionType;
   intensity: number;
-  timestamp: string; // Changed from Date to string for Redux serialization
+  timestamp: string;
   emotionScores: Record<EmotionType, number>;
 }
 
@@ -47,102 +47,50 @@ const emotionMapping: Record<string, EmotionType> = {
   anticipation: 'anticipation'
 };
 
-// Mock data generator for when Supabase is not configured
-function generateMockArticles(count: number): ProcessedNewsArticle[] {
+// Mock data for development when Supabase is not configured
+const generateMockArticles = (count: number): ProcessedNewsArticle[] => {
   const emotions: EmotionType[] = ['joy', 'trust', 'fear', 'surprise', 'sadness', 'disgust', 'anger', 'anticipation'];
   const subreddits = ['worldnews', 'politics', 'technology', 'science'];
-  const headlines = [
-    'Breaking: Major diplomatic breakthrough in international relations',
-    'Scientists discover revolutionary new renewable energy source',
-    'Global markets respond positively to economic reforms',
-    'New technology promises to transform healthcare delivery',
-    'International cooperation leads to environmental progress',
-    'Research breakthrough offers hope for climate solutions',
-    'Political leaders announce historic peace agreement',
-    'Innovation in AI brings new possibilities for education',
-    'Medical advancement shows promise for treating diseases',
-    'Economic policies show positive impact on communities'
+  const mockTitles = [
+    'Global Climate Summit Reaches Historic Agreement',
+    'New Technology Breakthrough Changes Everything',
+    'Economic Markets Show Surprising Resilience',
+    'Political Leaders Meet for Peace Talks',
+    'Scientific Discovery Opens New Possibilities',
+    'Community Rallies Together in Times of Need',
+    'Innovation Drives Progress in Healthcare',
+    'Environmental Protection Measures Announced'
   ];
 
   return Array.from({ length: count }, (_, i) => {
-    const emotion = emotions[Math.floor(Math.random() * emotions.length)];
-    const emotionScores: Record<EmotionType, number> = {} as Record<EmotionType, number>;
+    const emotion = emotions[i % emotions.length];
+    const subreddit = subreddits[i % subreddits.length];
+    const title = mockTitles[i % mockTitles.length];
     
-    // Generate realistic emotion scores
-    emotions.forEach(e => {
-      if (e === emotion) {
-        emotionScores[e] = 0.6 + Math.random() * 0.4; // Dominant emotion: 0.6-1.0
-      } else {
-        emotionScores[e] = Math.random() * 0.3; // Other emotions: 0.0-0.3
-      }
-    });
-
     return {
       id: `mock-${i}`,
-      headline: headlines[Math.floor(Math.random() * headlines.length)],
-      summary: 'This is a mock article generated for development purposes when Supabase is not configured.',
-      source: 'Reddit',
-      url: `https://reddit.com/r/${subreddits[Math.floor(Math.random() * subreddits.length)]}/mock-${i}`,
+      headline: title,
+      summary: `This is a mock article about ${emotion} in ${subreddit}. This data is generated for development purposes when Supabase is not configured.`,
+      source: 'Mock Data',
+      url: '#',
       image: null,
-      subreddit: subreddits[Math.floor(Math.random() * subreddits.length)],
+      subreddit,
       emotion,
-      intensity: emotionScores[emotion],
+      intensity: Math.random() * 0.5 + 0.5,
       timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      emotionScores
-    };
-  });
-}
-
-// Generate mock historical data representing end-of-day snapshots
-function generateMockHistoricalArticles(): ProcessedNewsArticle[] {
-  const emotions: EmotionType[] = ['joy', 'trust', 'fear', 'surprise', 'sadness', 'disgust', 'anger', 'anticipation'];
-  const subreddits = ['worldnews', 'politics'];
-  
-  // Historical headlines representing peak emotional moments of each day
-  const historicalHeadlines = [
-    'Historic Peace Agreement Signed After Decades of Conflict',
-    'Global Economic Crisis Triggers Worldwide Market Collapse',
-    'Revolutionary Medical Breakthrough Offers Hope for Millions',
-    'Unexpected Political Victory Shocks International Community',
-    'Devastating Natural Disaster Claims Thousands of Lives',
-    'Major Corruption Scandal Rocks Government Leadership',
-    'Scientific Discovery Could Transform Climate Change Response',
-    'Terrorist Attack Leaves Nation in State of Fear and Mourning'
-  ];
-
-  return emotions.map((emotion, i) => {
-    const emotionScores: Record<EmotionType, number> = {} as Record<EmotionType, number>;
-    
-    // Generate very high intensity scores for historical peak articles
-    emotions.forEach(e => {
-      if (e === emotion) {
-        emotionScores[e] = 0.85 + Math.random() * 0.15; // Very high intensity: 0.85-1.0
-      } else {
-        emotionScores[e] = Math.random() * 0.2; // Other emotions: 0.0-0.2
+      emotionScores: {
+        joy: emotion === 'joy' ? 0.8 : Math.random() * 0.3,
+        trust: emotion === 'trust' ? 0.8 : Math.random() * 0.3,
+        fear: emotion === 'fear' ? 0.8 : Math.random() * 0.3,
+        surprise: emotion === 'surprise' ? 0.8 : Math.random() * 0.3,
+        sadness: emotion === 'sadness' ? 0.8 : Math.random() * 0.3,
+        disgust: emotion === 'disgust' ? 0.8 : Math.random() * 0.3,
+        anger: emotion === 'anger' ? 0.8 : Math.random() * 0.3,
+        anticipation: emotion === 'anticipation' ? 0.8 : Math.random() * 0.3,
       }
-    });
-
-    // Create dates representing end-of-day snapshots from the last 8 days
-    const daysAgo = 7 - i;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    date.setHours(23, 59, 59, 999); // Set to end of day (11:59:59 PM)
-
-    return {
-      id: `historical-peak-${i}`,
-      headline: historicalHeadlines[i],
-      summary: `This article represents the peak emotional intensity for ${emotion} at the end of ${date.toDateString()}. This would be updated daily at midnight with the highest intensity article of that day.`,
-      source: 'Reddit',
-      url: `https://reddit.com/r/${subreddits[Math.floor(Math.random() * subreddits.length)]}/historical-peak-${i}`,
-      image: null,
-      subreddit: subreddits[Math.floor(Math.random() * subreddits.length)],
-      emotion,
-      intensity: emotionScores[emotion],
-      timestamp: date.toISOString(),
-      emotionScores
     };
   });
-}
+};
 
 // Get the dominant emotion from emotion scores
 export function getDominantEmotionFromScores(article: NewsArticle): { emotion: EmotionType; intensity: number } {
@@ -151,7 +99,7 @@ export function getDominantEmotionFromScores(article: NewsArticle): { emotion: E
   // Collect all emotion scores
   Object.entries(emotionMapping).forEach(([dbColumn, emotionType]) => {
     const score = article[dbColumn as keyof NewsArticle] as number;
-    if (score !== null && score !== undefined) {
+    if (score !== null && score !== undefined && !isNaN(score)) {
       emotions.push({ emotion: emotionType, score });
     }
   });
@@ -164,7 +112,7 @@ export function getDominantEmotionFromScores(article: NewsArticle): { emotion: E
   emotions.sort((a, b) => b.score - a.score);
   const dominant = emotions[0];
   
-  // Normalize intensity to 0-1 range (assuming scores are 0-1, adjust if needed)
+  // Normalize intensity to 0-1 range
   const intensity = Math.min(Math.max(dominant.score, 0), 1);
   
   return { emotion: dominant.emotion, intensity };
@@ -186,12 +134,11 @@ export function processNewsArticle(article: NewsArticle): ProcessedNewsArticle {
     anticipation: article.anticipation || 0
   };
 
-  // Handle timestamp conversion to string for Redux serialization
+  // Handle timestamp conversion
   let timestampString: string;
   try {
     if (article.timestamp) {
       const date = new Date(article.timestamp);
-      // Check if the date is valid
       if (!isNaN(date.getTime())) {
         timestampString = date.toISOString();
       } else {
@@ -228,9 +175,8 @@ export async function fetchNewsArticles(options: {
   sortBy?: 'timestamp' | 'intensity';
   sortOrder?: 'asc' | 'desc';
 } = {}): Promise<ProcessedNewsArticle[]> {
-  // If Supabase is not configured, return mock data
   if (!isSupabaseConfigured) {
-    console.warn('Supabase not configured, returning mock data');
+    console.warn('🔄 Using mock data - Supabase not configured');
     const mockArticles = generateMockArticles(options.limit || 50);
     
     // Apply filters to mock data
@@ -254,17 +200,19 @@ export async function fetchNewsArticles(options: {
         options.sortOrder === 'asc' ? a.intensity - b.intensity : b.intensity - a.intensity
       );
     } else {
-      filteredArticles.sort((a, b) => {
-        const dateA = new Date(a.timestamp).getTime();
-        const dateB = new Date(b.timestamp).getTime();
-        return options.sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-      });
+      filteredArticles.sort((a, b) => 
+        options.sortOrder === 'asc' 
+          ? new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          : new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
     }
     
-    return filteredArticles.slice(0, options.limit || 50);
+    return filteredArticles;
   }
 
   try {
+    console.log('Fetching articles from Supabase with options:', options);
+    
     let query = supabase
       .from('classified_reddit_news')
       .select('*');
@@ -274,29 +222,32 @@ export async function fetchNewsArticles(options: {
       query = query.in('subreddit', options.subreddits);
     }
 
+    // Apply sorting - default to timestamp descending for most recent first
+    if (options.sortBy === 'timestamp') {
+      query = query.order('timestamp', { ascending: options.sortOrder === 'asc' });
+    } else {
+      // Default to processed_at for recency, then timestamp
+      query = query.order('processed_at', { ascending: false });
+    }
+
     // Apply limit
     if (options.limit) {
       query = query.limit(options.limit);
     }
 
-    // Apply sorting
-    if (options.sortBy === 'timestamp') {
-      query = query.order('timestamp', { ascending: options.sortOrder === 'asc' });
-    } else {
-      // Default to processed_at for recency
-      query = query.order('processed_at', { ascending: false });
-    }
-
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching news articles:', error);
-      return generateMockArticles(options.limit || 50);
+      console.error('Supabase query error:', error);
+      throw new Error(`Database query failed: ${error.message}`);
     }
 
-    if (!data) {
-      return generateMockArticles(options.limit || 50);
+    if (!data || data.length === 0) {
+      console.warn('No articles found in database');
+      return [];
     }
+
+    console.log(`Successfully fetched ${data.length} articles from database`);
 
     // Process articles and filter by emotions if specified
     let processedArticles = data.map(processNewsArticle);
@@ -307,7 +258,7 @@ export async function fetchNewsArticles(options: {
       );
     }
 
-    // Sort by intensity if requested
+    // Sort by intensity if requested (after processing)
     if (options.sortBy === 'intensity') {
       processedArticles.sort((a, b) => 
         options.sortOrder === 'asc' ? a.intensity - b.intensity : b.intensity - a.intensity
@@ -316,53 +267,112 @@ export async function fetchNewsArticles(options: {
 
     return processedArticles;
   } catch (error) {
-    console.error('Unexpected error fetching news articles:', error);
-    return generateMockArticles(options.limit || 50);
+    console.error('Error fetching news articles:', error);
+    throw error;
   }
 }
 
-// NEW: Fetch top 8 highest intensity articles representing end-of-day snapshots
-// This simulates what would be updated daily at midnight with the day's peak articles
-export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArticle[]> {
-  // If Supabase is not configured, return mock historical data
-  if (!isSupabaseConfigured) {
-    console.warn('Supabase not configured, returning mock historical end-of-day data');
-    return generateMockHistoricalArticles();
-  }
+// Fetch trending articles (high intensity, recent)
+export async function fetchTrendingArticles(limit: number = 50): Promise<ProcessedNewsArticle[]> {
+  console.log('Fetching trending articles...');
+  
+  const articles = await fetchNewsArticles({
+    limit: limit * 2, // Fetch more to filter for high intensity
+    subreddits: ['worldnews', 'politics'], // Keep trending focused on main news
+    sortBy: 'timestamp',
+    sortOrder: 'desc'
+  });
 
-  try {
-    // In a real implementation, this would query a separate table or view
-    // that gets updated daily at midnight with the highest intensity article per day
-    // For now, we simulate this by getting the highest intensity article from each of the last 8 days
+  // Filter for high intensity articles and sort by intensity
+  const trendingArticles = articles
+    .filter(article => article.intensity > 0.6) // Only high intensity articles
+    .sort((a, b) => b.intensity - a.intensity) // Sort by intensity descending
+    .slice(0, limit); // Take top articles
+
+  console.log(`Found ${trendingArticles.length} trending articles`);
+  return trendingArticles;
+}
+
+// Fetch articles for octant visualization - NOW GETS ALL ARTICLES
+export async function fetchOctantArticles(limit: number = 1000): Promise<ProcessedNewsArticle[]> {
+  console.log('Fetching ALL octant articles from database...');
+  
+  // Remove subreddit filter to get ALL articles
+  return fetchNewsArticles({
+    limit,
+    // No subreddit filter - get all articles from all subreddits
+    sortBy: 'timestamp',
+    sortOrder: 'desc'
+  });
+}
+
+// Fetch historical octant articles (top intensity articles from recent days)
+export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArticle[]> {
+  console.log('Fetching historical octant articles from ALL subreddits...');
+  
+  if (!isSupabaseConfigured) {
+    console.warn('🔄 Using mock historical data - Supabase not configured');
+    const mockArticles = generateMockArticles(30);
     
+    // Group by day and get highest intensity from each day
+    const articlesByDay: { [key: string]: ProcessedNewsArticle[] } = {};
+    
+    mockArticles.forEach(article => {
+      const date = new Date(article.timestamp);
+      const dayKey = date.toDateString();
+      
+      if (!articlesByDay[dayKey]) {
+        articlesByDay[dayKey] = [];
+      }
+      articlesByDay[dayKey].push(article);
+    });
+
+    // Get the highest intensity article from each day
+    const dailyPeakArticles: ProcessedNewsArticle[] = [];
+    
+    Object.entries(articlesByDay).forEach(([dayKey, dayArticles]) => {
+      if (dayArticles.length > 0) {
+        dayArticles.sort((a, b) => b.intensity - a.intensity);
+        const peakArticle = dayArticles[0];
+        peakArticle.id = `daily-peak-${dayKey}-${peakArticle.id}`;
+        dailyPeakArticles.push(peakArticle);
+      }
+    });
+
+    dailyPeakArticles.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return dailyPeakArticles.slice(0, 8);
+  }
+  
+  try {
+    // Get articles from the last 30 days to have enough data
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7); // 8 days ago
+    startDate.setDate(startDate.getDate() - 30);
 
-    // This query would ideally be against a "daily_peak_articles" table
-    // that gets populated by a daily cron job at midnight
     const { data, error } = await supabase
       .from('classified_reddit_news')
       .select('*')
-      .in('subreddit', ['worldnews', 'politics'])
+      // Remove subreddit filter to get ALL articles
       .gte('timestamp', startDate.toISOString())
       .lte('timestamp', endDate.toISOString())
-      .order('processed_at', { ascending: false });
+      .order('timestamp', { ascending: false });
 
     if (error) {
       console.error('Error fetching historical articles:', error);
-      return generateMockHistoricalArticles();
+      throw new Error(`Database query failed: ${error.message}`);
     }
 
     if (!data || data.length === 0) {
-      return generateMockHistoricalArticles();
+      console.warn('No historical articles found');
+      return [];
     }
+
+    console.log(`Found ${data.length} historical articles from ALL subreddits`);
 
     // Process all articles
     const processedArticles = data.map(processNewsArticle);
 
     // Group articles by day and find the highest intensity article for each day
-    // This simulates what would be done by a daily batch job
     const articlesByDay: { [key: string]: ProcessedNewsArticle[] } = {};
     
     processedArticles.forEach(article => {
@@ -375,18 +385,17 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
       articlesByDay[dayKey].push(article);
     });
 
-    // Get the highest intensity article from each day (simulating daily batch processing)
+    // Get the highest intensity article from each day
     const dailyPeakArticles: ProcessedNewsArticle[] = [];
     
     Object.entries(articlesByDay).forEach(([dayKey, dayArticles]) => {
       if (dayArticles.length > 0) {
-        // Sort by intensity and take the highest (this would be done at end of day)
+        // Sort by intensity and take the highest
         dayArticles.sort((a, b) => b.intensity - a.intensity);
         const peakArticle = dayArticles[0];
         
-        // Mark this as an end-of-day snapshot
+        // Mark this as a daily peak
         peakArticle.id = `daily-peak-${dayKey}-${peakArticle.id}`;
-        peakArticle.summary = `Peak emotional intensity article for ${dayKey}. ${peakArticle.summary}`;
         
         dailyPeakArticles.push(peakArticle);
       }
@@ -395,43 +404,14 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
     // Sort by date and take the most recent 8 days
     dailyPeakArticles.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     
-    // If we have fewer than 8 articles, fill with mock data
     const result = dailyPeakArticles.slice(0, 8);
-    if (result.length < 8) {
-      const mockArticles = generateMockHistoricalArticles();
-      result.push(...mockArticles.slice(result.length));
-    }
-
-    return result.slice(0, 8); // Ensure exactly 8 articles
+    console.log(`Found ${result.length} historical peak articles from ALL subreddits`);
+    
+    return result;
   } catch (error) {
-    console.error('Unexpected error fetching historical articles:', error);
-    return generateMockHistoricalArticles();
+    console.error('Error fetching historical articles:', error);
+    throw error;
   }
-}
-
-// Fetch trending articles (high intensity, recent)
-export async function fetchTrendingArticles(limit: number = 50): Promise<ProcessedNewsArticle[]> {
-  return fetchNewsArticles({
-    limit: limit * 2, // Fetch more to filter for high intensity
-    subreddits: ['worldnews', 'politics'], // Focus on worldnews and politics
-    sortBy: 'timestamp',
-    sortOrder: 'desc'
-  }).then(articles => {
-    // Filter for high intensity articles and sort by intensity
-    return articles
-      .filter(article => article.intensity > 0.6) // Only high intensity articles
-      .sort((a, b) => b.intensity - a.intensity) // Sort by intensity descending
-      .slice(0, limit); // Take top articles
-  });
-}
-
-// Fetch articles for octant visualization
-export async function fetchOctantArticles(limit: number = 1000): Promise<ProcessedNewsArticle[]> {
-  return fetchNewsArticles({
-    limit,
-    sortBy: 'timestamp',
-    sortOrder: 'desc'
-  });
 }
 
 // Get emotion distribution from articles
@@ -453,40 +433,41 @@ export function getEmotionDistribution(articles: ProcessedNewsArticle[]): Record
     distribution[article.emotion]++;
   });
 
-  // Convert to percentages
-  Object.keys(distribution).forEach(emotion => {
-    distribution[emotion as EmotionType] = distribution[emotion as EmotionType] / articles.length;
-  });
-
   return distribution;
 }
 
 // Get current dominant emotion from recent articles
 export async function getCurrentDominantEmotion(): Promise<EmotionType> {
   try {
+    console.log('Fetching current dominant emotion from ALL articles...');
+    
     const recentArticles = await fetchNewsArticles({
       limit: 100,
+      // No subreddit filter - analyze ALL articles
       sortBy: 'timestamp',
       sortOrder: 'desc'
     });
 
     if (recentArticles.length === 0) {
-      return 'joy'; // Default fallback
+      console.warn('No recent articles found, using default emotion');
+      return 'joy';
     }
 
     const distribution = getEmotionDistribution(recentArticles);
     
-    // Find emotion with highest percentage
+    // Find emotion with highest count
     let dominantEmotion: EmotionType = 'joy';
-    let highestPercentage = 0;
+    let highestCount = 0;
 
-    Object.entries(distribution).forEach(([emotion, percentage]) => {
-      if (percentage > highestPercentage) {
-        highestPercentage = percentage;
+    Object.entries(distribution).forEach(([emotion, count]) => {
+      if (count > highestCount) {
+        highestCount = count;
         dominantEmotion = emotion as EmotionType;
       }
     });
 
+    const dataSource = isSupabaseConfigured ? 'database' : 'mock data';
+    console.log(`Current dominant emotion: ${dominantEmotion} (${highestCount} articles from ${dataSource})`);
     return dominantEmotion;
   } catch (error) {
     console.error('Error getting current dominant emotion:', error);
