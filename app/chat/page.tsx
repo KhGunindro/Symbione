@@ -32,7 +32,6 @@ interface Message {
   timestamp: string;
   sender: 'user' | 'ai';
 }
-
 interface NewsCard {
   id: string;
   title: string;
