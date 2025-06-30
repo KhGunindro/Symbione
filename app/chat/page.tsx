@@ -734,9 +734,6 @@ ${selectedCards.map(card => `
                 <CardTitle className="text-xl font-light tracking-wider text-glow">
                   COSMARK
                 </CardTitle>
-                <p className="text-xs text-white/60 tracking-wide font-medium">
-                  Cosmic Intelligence Interface
-                </p>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
