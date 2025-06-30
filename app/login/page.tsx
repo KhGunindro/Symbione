@@ -39,6 +39,8 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
   const [userName, setUserName] = useState<string>('Sweetam');
 
   // Load saved user data on component mount
@@ -270,6 +272,38 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!formData.email.trim()) {
+      setErrors({ email: 'Please enter your email address first' });
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      setErrors({ email: 'Please enter a valid email address' });
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    setForgotPasswordMessage('');
+    setErrors({});
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`
+      });
+
+      if (error) {
+        setErrors({ submit: error.message });
+      } else {
+        setForgotPasswordMessage('Password reset email sent! Please check your inbox.');
+      }
+    } catch (error) {
+      setErrors({ submit: 'Failed to send password reset email. Please try again.' });
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   return (
     <PageLoader 
       type="general" 
@@ -368,10 +402,13 @@ export default function LoginPage() {
                         placeholder="Enter your email address"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                        className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
                           errors.email ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
+                        style={{
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        }}
                       />
                       {errors.email && (
                         <p className="text-red-500 text-sm mt-2">{errors.email}</p>
@@ -385,10 +422,13 @@ export default function LoginPage() {
                         placeholder="Enter your password"
                         value={formData.password}
                         onChange={(e) => handleInputChange('password', e.target.value)}
-                        className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                        className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
                           errors.password ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
+                        style={{
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        }}
                       />
                       {errors.password && (
                         <p className="text-red-500 text-sm mt-2">{errors.password}</p>
@@ -409,13 +449,30 @@ export default function LoginPage() {
                           Remember Password
                         </label>
                       </div>
-                      <Link
-                        href="/forgot-password"
-                        className="text-sm text-gray-600 hover:text-black transition-all duration-300 transform hover:scale-105 font-medium"
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleForgotPassword}
+                        disabled={forgotPasswordLoading}
+                        className="text-sm text-gray-600 hover:text-black transition-all duration-300 transform hover:scale-105 font-medium p-0 h-auto"
                       >
-                        Forgot Password?
-                      </Link>
+                        {forgotPasswordLoading ? (
+                          <>
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          'Forgot Password?'
+                        )}
+                      </Button>
                     </div>
+
+                    {/* Forgot Password Success Message */}
+                    {forgotPasswordMessage && (
+                      <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                        <p className="text-green-600 text-sm font-medium">{forgotPasswordMessage}</p>
+                      </div>
+                    )}
 
                     {/* Submit Error */}
                     {errors.submit && (
