@@ -83,14 +83,20 @@ export class MusicManager {
   private lastPlayedChatType: 'ambient' | 'focus' | null = null;
 
   constructor() {
-    // Load music preference from localStorage
-    const savedPreference = localStorage.getItem('musicEnabled');
-    this.isEnabled = savedPreference !== 'false';
+    // Load music preference from localStorage - only in browser environment
+    if (typeof window !== 'undefined') {
+      const savedPreference = localStorage.getItem('musicEnabled');
+      this.isEnabled = savedPreference !== 'false';
+    }
   }
 
   setEnabled(enabled: boolean) {
     this.isEnabled = enabled;
-    localStorage.setItem('musicEnabled', enabled.toString());
+    
+    // Only access localStorage in browser environment
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('musicEnabled', enabled.toString());
+    }
     
     if (!enabled) {
       // When disabling, stop current music
@@ -162,6 +168,11 @@ export class MusicManager {
   }
 
   private playMusic(src: string, volume: number, loop: boolean) {
+    // Only create Audio objects in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+    
     try {
       this.currentAudio = new Audio(src);
       this.currentAudio.volume = volume;
