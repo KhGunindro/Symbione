@@ -261,6 +261,15 @@ export default function TimelinePage() {
       minLoadTime={3800}
     >
       <div className="min-h-screen bg-black text-white relative overflow-hidden">
+        {/* Logo.png Creative Placement - Floating in top left */}
+        <div className="fixed top-20 left-6 z-30 animate-float">
+          <img 
+            src="/logo.png" 
+            alt="Symbione" 
+            className="h-12 w-12 object-contain opacity-70 hover:opacity-100 transition-opacity duration-300"
+          />
+        </div>
+
         {/* Enhanced Cosmic Background - Same as Hero */}
         <div className="fixed inset-0 z-0 pointer-events-none">
           {/* Main Starfield */}
@@ -745,7 +754,7 @@ export default function TimelinePage() {
             }
           }
 
-          /* Stardust Particles */
+          /* Stardust Particles */}
           .stardust-container {
             position: absolute;
             width: 100%;
@@ -795,7 +804,7 @@ export default function TimelinePage() {
             }
           }
 
-          /* Nebula Clouds */
+          /* Nebula Clouds */}
           .nebula-container {
             position: absolute;
             width: 100%;
@@ -857,7 +866,7 @@ export default function TimelinePage() {
             }
           }
 
-          /* Cosmic Dust Trails */
+          /* Cosmic Dust Trails */}
           .cosmic-dust-container {
             position: absolute;
             width: 100%;
@@ -909,7 +918,7 @@ export default function TimelinePage() {
             }
           }
 
-          /* Distant Galaxies */
+          /* Distant Galaxies */}
           .galaxy-container {
             position: absolute;
             width: 100%;
@@ -961,7 +970,7 @@ export default function TimelinePage() {
             }
           }
 
-          /* Enhanced cosmic atmosphere */
+          /* Enhanced cosmic atmosphere */}
           .starfield-container::before {
             content: '';
             position: absolute;

@@ -160,6 +160,15 @@ export default function TrendingPage() {
         <Navigation />
         <NotificationContainer />
         
+        {/* Logo.png Creative Placement - Floating in top left */}
+        <div className="fixed top-20 left-6 z-30 animate-float">
+          <img 
+            src="/logo.png" 
+            alt="Symbione" 
+            className="h-12 w-12 object-contain opacity-70 hover:opacity-100 transition-opacity duration-300"
+          />
+        </div>
+        
         <div className="mt-16 pt-16 p-6">
           <div className="max-w-7xl mx-auto">
             {/* Premium Header */}
