@@ -7,68 +7,68 @@ export interface MusicConfig {
   loop: boolean;
 }
 
-// Music configuration for each emotion
+// Music configuration for each emotion - REDUCED VOLUME
 export const EMOTION_MUSIC: Record<EmotionType, MusicConfig> = {
   joy: {
     emotion: 'joy',
     filename: '(Joy)ES_Getaway - Ruiqi Zhao.mp3', // Bright piano/electro music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   trust: {
     emotion: 'trust',
     filename: '(Peace Happy)ES_In a Trance - Jon Bjork.mp3', // Calm ambient music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   fear: {
     emotion: 'fear',
     filename: '(Fear)ES_The Mire - Anders Schill Paulsen.mp3', // Tense drones music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   surprise: {
     emotion: 'surprise',
     filename: '(Surprise)ES_Adaption - Out To The World.mp3', // Chimes/synth pop music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   sadness: {
     emotion: 'sadness',
     filename: '(Sentimental)ES_Buried Time - Rand Aldo.mp3', // Ambient soft pads music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   anticipation: {
     emotion: 'anticipation',
     filename: '(anticipation)ES_DOX - Lennon Hutton.mp3', // Minimal electronic music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   anger: {
     emotion: 'anger',
     filename: 'anger-harsh-strings.mp3', // Harsh strings/drums music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   disgust: {
     emotion: 'disgust',
     filename: '(disgust)ES_Uranium - Lennon Hutton.mp3', // Dissonant textures music
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   }
 };
 
-// Chat page specific music
+// Chat page specific music - REDUCED VOLUME
 export const CHAT_MUSIC = {
   ambient: {
     filename: 'ES_Dozin\' Off - Timothy Infinite.mp3', // Ambient background music for chat
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   },
   focus: {
     filename: 'ES_Ferns - Guustavv.mp3', // Focus/concentration music for chat
-    volume: 0.3,
+    volume: 0.15, // Reduced from 0.3
     loop: true
   }
 };
@@ -78,6 +78,9 @@ export class MusicManager {
   private isEnabled: boolean = true;
   private currentEmotion: EmotionType | null = null;
   private isChatMode: boolean = false;
+  // NEW: Track last played music for proper unmute functionality
+  private lastPlayedEmotion: EmotionType | null = null;
+  private lastPlayedChatType: 'ambient' | 'focus' | null = null;
 
   constructor() {
     // Load music preference from localStorage
@@ -89,8 +92,16 @@ export class MusicManager {
     this.isEnabled = enabled;
     localStorage.setItem('musicEnabled', enabled.toString());
     
-    if (!enabled && this.currentAudio) {
+    if (!enabled) {
+      // When disabling, stop current music
       this.stop();
+    } else {
+      // When enabling, resume the last played music
+      if (this.lastPlayedEmotion) {
+        this.playEmotionMusic(this.lastPlayedEmotion);
+      } else if (this.lastPlayedChatType) {
+        this.playChatMusic(this.lastPlayedChatType);
+      }
     }
   }
 
@@ -103,7 +114,12 @@ export class MusicManager {
   }
 
   playEmotionMusic(emotion: EmotionType) {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      // Still track what should be playing for when music is re-enabled
+      this.lastPlayedEmotion = emotion;
+      this.lastPlayedChatType = null;
+      return;
+    }
     
     // Don't restart if same emotion is already playing
     if (this.currentEmotion === emotion && this.isPlaying() && !this.isChatMode) {
@@ -113,13 +129,21 @@ export class MusicManager {
     this.stop();
     this.currentEmotion = emotion;
     this.isChatMode = false;
+    // Track for unmute functionality
+    this.lastPlayedEmotion = emotion;
+    this.lastPlayedChatType = null;
 
     const config = EMOTION_MUSIC[emotion];
     this.playMusic(`/sounds/${config.filename}`, config.volume, config.loop);
   }
 
   playChatMusic(type: 'ambient' | 'focus' = 'ambient') {
-    if (!this.isEnabled) return;
+    if (!this.isEnabled) {
+      // Still track what should be playing for when music is re-enabled
+      this.lastPlayedChatType = type;
+      this.lastPlayedEmotion = null;
+      return;
+    }
     
     // Don't restart if chat music is already playing
     if (this.isChatMode && this.isPlaying()) {
@@ -129,6 +153,9 @@ export class MusicManager {
     this.stop();
     this.currentEmotion = null;
     this.isChatMode = true;
+    // Track for unmute functionality
+    this.lastPlayedChatType = type;
+    this.lastPlayedEmotion = null;
 
     const config = CHAT_MUSIC[type];
     this.playMusic(`/sounds/${config.filename}`, config.volume, config.loop);

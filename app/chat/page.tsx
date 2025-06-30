@@ -594,7 +594,7 @@ ${selectedCards.map(card => `
                     >
                       <Star className="w-4 h-4 text-white" />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <Badge 
                         variant="outline" 
                         className="text-xs mb-2 glass-button border-white/30 text-white/80"
@@ -605,7 +605,7 @@ ${selectedCards.map(card => `
                       >
                         {card.category}
                       </Badge>
-                      <h3 className="text-sm font-light text-white leading-tight text-glow">
+                      <h3 className="text-sm font-light text-white leading-tight text-glow truncate">
                         {card.title}
                       </h3>
                     </div>
@@ -690,10 +690,15 @@ ${selectedCards.map(card => `
                       {message.context && message.context.length > 0 && (
                         <div className="mb-2 space-y-1">
                           {message.context.map((card) => (
-                            <div key={card.id} className="text-xs text-white glass-card border-white/20 rounded p-2 backdrop-blur-sm">
-                              <div className="flex items-center space-x-2">
-                                <Star className="w-3 h-3" />
-                                <span className="font-light">{card.title}</span>
+                            <div key={card.id} className="text-xs text-white glass-card border-white/20 rounded-lg p-3 backdrop-blur-sm">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <Star className="w-3 h-3 flex-shrink-0" />
+                                <span className="font-light truncate max-w-48" title={card.title}>
+                                  {card.title}
+                                </span>
+                              </div>
+                              <div className="text-white/60 text-xs leading-relaxed">
+                                {card.content}
                               </div>
                             </div>
                           ))}
@@ -701,7 +706,7 @@ ${selectedCards.map(card => `
                       )}
                       
                       <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-lg p-3">
-                        <p className="text-sm font-light">{message.text}</p>
+                        <p className="text-sm font-light leading-relaxed">{message.text}</p>
                         <span className="text-xs mt-2 block font-light tracking-wide opacity-60">
                           {message.timestamp}
                         </span>
@@ -722,14 +727,16 @@ ${selectedCards.map(card => `
               <div className="text-xs text-white/60 mb-2 tracking-wide uppercase">Cosmic Context:</div>
               <div className="flex flex-wrap gap-2">
                 {selectedCards.map((card) => (
-                  <div key={card.id} className="flex items-center glass-card border-white/20 text-white text-xs px-3 py-1 rounded backdrop-blur-sm">
-                    <Star className="w-3 h-3 mr-1" />
-                    <span className="truncate max-w-32 font-light">{card.title}</span>
+                  <div key={card.id} className="flex items-center glass-card border-white/20 text-white text-xs px-3 py-1 rounded backdrop-blur-sm min-w-0">
+                    <Star className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="truncate max-w-24 font-light" title={card.title}>
+                      {card.title}
+                    </span>
                     <Button
                       onClick={() => removeSelectedCard(card.id)}
                       variant="ghost"
                       size="sm"
-                      className="ml-2 h-auto p-0 hover:text-white/60 transition-colors"
+                      className="ml-2 h-auto p-0 hover:text-white/60 transition-colors flex-shrink-0"
                     >
                       <X className="w-3 h-3" />
                     </Button>
