@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppSelector } from '@/lib/store/hooks';
 import { getEmotionTheme } from '@/lib/emotions';
 import { supabase } from '@/lib/supabase';
+import { fetchUserBookmarks, deleteUserBookmark, BookmarkedArticle } from '@/lib/news-data';
 import { 
   Send, 
   Mic, 
@@ -30,16 +31,18 @@ interface Message {
 }
 
 interface NewsCard {
-  id: number;
+  id: string;
   title: string;
   content: string;
   position: { x: number; y: number };
   category: string;
+  bookmarkId?: string;
 }
 
 export default function ChatPage() {
   const router = useRouter();
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -49,8 +52,10 @@ export default function ChatPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isOverChatBox, setIsOverChatBox] = useState(false);
-  const [vanishingCards, setVanishingCards] = useState<number[]>([]);
+  const [vanishingCards, setVanishingCards] = useState<string[]>([]);
   const [removedCards, setRemovedCards] = useState<NewsCard[]>([]);
+  const [cards, setCards] = useState<NewsCard[]>([]);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(true);
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -76,6 +81,7 @@ export default function ChatPage() {
           return;
         }
 
+        setUser(session.user);
         setLoadingAuth(false);
       } catch (error) {
         console.error('Unexpected auth error:', error);
@@ -86,53 +92,41 @@ export default function ChatPage() {
     checkAuth();
   }, [router]);
 
-  // Sample cosmic news cards data
-  const newsCardsData: NewsCard[] = [
-    {
-      id: 1,
-      title: "Quantum Computing Breakthrough",
-      content: "Scientists achieve new milestone in quantum computing, potentially revolutionizing data processing capabilities and enabling unprecedented computational power for complex problem-solving...",
-      position: { x: 120, y: 180 },
-      category: "Technology"
-    },
-    {
-      id: 2,
-      title: "Space Mining Operations Begin",
-      content: "First commercial asteroid mining mission launches, marking new era in space resource extraction and opening possibilities for rare metal harvesting beyond Earth...",
-      position: { x: 350, y: 120 },
-      category: "Space"
-    },
-    {
-      id: 3,
-      title: "Neural Interface Advancement",
-      content: "Brain-computer interfaces reach new level of precision, enabling direct thought-to-digital communication and promising revolutionary treatments for neurological conditions...",
-      position: { x: 180, y: 380 },
-      category: "Neuroscience"
-    },
-    {
-      id: 4,
-      title: "Cosmic Dark Matter Discovery",
-      content: "Researchers detect unprecedented dark matter signals, reshaping understanding of universe composition and potentially solving one of physics' greatest mysteries...",
-      position: { x: 420, y: 250 },
-      category: "Physics"
-    },
-    {
-      id: 5,
-      title: "AI Consciousness Debate",
-      content: "Scientific community debates emergence of artificial consciousness in advanced language models, raising profound questions about the nature of intelligence and awareness...",
-      position: { x: 250, y: 480 },
-      category: "AI"
-    },
-    {
-      id: 6,
-      title: "Stellar Formation Patterns",
-      content: "New telescope observations reveal unexpected patterns in stellar formation across distant galaxies, challenging existing theories about cosmic evolution and star birth...",
-      position: { x: 480, y: 380 },
-      category: "Astronomy"
-    }
-  ];
+  // Load user bookmarks
+  useEffect(() => {
+    const loadBookmarks = async () => {
+      if (!user) return;
+      
+      try {
+        setLoadingBookmarks(true);
+        const bookmarks = await fetchUserBookmarks(user.id);
+        
+        // Convert bookmarks to NewsCard format
+        const bookmarkCards: NewsCard[] = bookmarks.map((bookmark, index) => ({
+          id: bookmark.id,
+          title: bookmark.title,
+          content: `From r/${bookmark.subreddit} • ${bookmark.emotion} (${bookmark.emotion_intensity}% intensity)`,
+          position: { 
+            x: 120 + (index % 3) * 200, 
+            y: 180 + Math.floor(index / 3) * 200 
+          },
+          category: bookmark.emotion,
+          bookmarkId: bookmark.id
+        }));
+        
+        setCards(bookmarkCards);
+        console.log(`Loaded ${bookmarkCards.length} bookmarks as cards`);
+      } catch (error) {
+        console.error('Error loading bookmarks:', error);
+      } finally {
+        setLoadingBookmarks(false);
+      }
+    };
 
-  const [cards, setCards] = useState<NewsCard[]>(newsCardsData);
+    if (!loadingAuth && user) {
+      loadBookmarks();
+    }
+  }, [user, loadingAuth]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -243,6 +237,21 @@ export default function ChatPage() {
     return "I'm currently experiencing some interference with the cosmic intelligence network, but I can sense the depth of your inquiry. The universe holds infinite mysteries, and your question touches upon fundamental aspects of existence and knowledge. While I work to reconnect with the stellar data streams, I encourage you to explore the interconnected nature of all cosmic phenomena.";
   };
 
+  // Delete bookmark function
+  const deleteBookmark = async (cardId: string) => {
+    try {
+      await deleteUserBookmark(cardId);
+      
+      // Remove card from display
+      setCards(prevCards => prevCards.filter(card => card.id !== cardId));
+      setSelectedCards(prevSelected => prevSelected.filter(card => card.id !== cardId));
+      
+      console.log('Bookmark deleted successfully');
+    } catch (error) {
+      console.error('Error deleting bookmark:', error);
+    }
+  };
+
   // Smooth drag handling
   const handleMouseDown = (e: React.MouseEvent, card: NewsCard) => {
     e.preventDefault();
@@ -333,7 +342,7 @@ export default function ChatPage() {
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Remove card from selection and restore it
-  const removeSelectedCard = (cardId: number) => {
+  const removeSelectedCard = (cardId: string) => {
     setSelectedCards(selectedCards.filter(card => card.id !== cardId));
     
     const cardToRestore = removedCards.find(card => card.id === cardId);
@@ -505,138 +514,73 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* Enhanced Cosmic Background - Same as Hero */}
-        <div className="fixed inset-0 z-0 pointer-events-none">
-          {/* Main Starfield */}
-          <div className="starfield-container">
-            {Array.from({ length: 300 }).map((_, i) => (
-              <div
-                key={i}
-                className="star"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${2 + Math.random() * 4}s`
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Stardust Particles */}
-          <div className="stardust-container">
-            {Array.from({ length: 150 }).map((_, i) => (
-              <div
-                key={i}
-                className="stardust"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  animationDuration: `${8 + Math.random() * 12}s`
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Nebula Clouds */}
-          <div className="nebula-container">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="nebula"
-                style={{
-                  left: `${Math.random() * 120 - 10}%`,
-                  top: `${Math.random() * 120 - 10}%`,
-                  animationDelay: `${Math.random() * 10}s`,
-                  animationDuration: `${20 + Math.random() * 30}s`,
-                  '--nebula-color': i % 2 === 0 ? emotionTheme.color : 
-                    i % 3 === 0 ? '#4A90E2' : 
-                    i % 4 === 0 ? '#9B59B6' : '#E74C3C'
-                } as React.CSSProperties}
-              />
-            ))}
-          </div>
-
-          {/* Cosmic Dust Trails */}
-          <div className="cosmic-dust-container">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div
-                key={i}
-                className="cosmic-dust"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 15}s`,
-                  animationDuration: `${25 + Math.random() * 20}s`,
-                  '--dust-color': emotionTheme.particleColor
-                } as React.CSSProperties}
-              />
-            ))}
-          </div>
-
-          {/* Distant Galaxies */}
-          <div className="galaxy-container">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="galaxy"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 20}s`,
-                  animationDuration: `${40 + Math.random() * 40}s`
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
         <Navigation />
 
         {/* Floating cosmic news cards */}
         <div className="absolute inset-0 z-10">
-          {cards.map((card) => (
-            <div
-              key={card.id}
-              onMouseDown={(e) => handleMouseDown(e, card)}
-              className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
-                vanishingCards.includes(card.id)
-                  ? 'animate-vanish cursor-default'
-                  : isDragging && draggedCard?.id === card.id 
-                    ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
-                    : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
-              }`}
-              style={{
-                transform: `translate(${card.position.x}px, ${card.position.y}px)`,
-                opacity: vanishingCards.includes(card.id) ? 0 : 1,
-                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
-              }}
-            >
-              <div className="flex items-start mb-3">
-                <div className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                  <Star className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs mb-2 glass-button border-white/30 text-white/80"
-                  >
-                    {card.category}
-                  </Badge>
-                  <h3 className="text-sm font-light text-white leading-tight text-glow">
-                    {card.title}
-                  </h3>
-                </div>
+          {loadingBookmarks ? (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/50 mx-auto mb-4"></div>
+                <p className="text-white/70">Loading your bookmarks...</p>
               </div>
-              <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
-                {card.content}
-              </p>
-              
-              <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
-              <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
             </div>
-          ))}
+          ) : (
+            cards.map((card) => (
+              <div
+                key={card.id}
+                onMouseDown={(e) => handleMouseDown(e, card)}
+                className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
+                  vanishingCards.includes(card.id)
+                    ? 'animate-vanish cursor-default'
+                    : isDragging && draggedCard?.id === card.id 
+                      ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
+                      : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
+                }`}
+                style={{
+                  transform: `translate(${card.position.x}px, ${card.position.y}px)`,
+                  opacity: vanishingCards.includes(card.id) ? 0 : 1,
+                  pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
+                }}
+              >
+                {/* Delete button */}
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteBookmark(card.id);
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors z-20"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+
+                <div className="flex items-start mb-3">
+                  <div className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                    <Star className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs mb-2 glass-button border-white/30 text-white/80"
+                    >
+                      {card.category}
+                    </Badge>
+                    <h3 className="text-sm font-light text-white leading-tight text-glow">
+                      {card.title}
+                    </h3>
+                  </div>
+                </div>
+                <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
+                  {card.content}
+                </p>
+                
+                <div className="absolute top-2 right-8 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
+                <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Main chat interface */}
@@ -689,7 +633,7 @@ ${selectedCards.map(card => `
               <div className="flex items-center justify-center h-full text-white/50 text-sm">
                 <div className="text-center">
                   <Brain className="w-12 h-12 mx-auto mb-4 opacity-50 animate-float" />
-                  <p className="text-glow">Drag cosmic cards here to begin your journey</p>
+                  <p className="text-glow">Drag your bookmarked cards here to begin your journey</p>
                   <p className="text-xs mt-2 text-white/40">or simply ask me anything about the cosmos</p>
                 </div>
               </div>
@@ -698,7 +642,7 @@ ${selectedCards.map(card => `
                 {messages.map((message) => (
                   <div key={message.id} className="flex justify-start">
                     <div className="max-w-xs">
-                      {message.sender === 'user' && message.context && message.context.length > 0 && (
+                      {message.context && message.context.length > 0 && (
                         <div className="mb-2 space-y-1">
                           {message.context.map((card) => (
                             <div key={card.id} className="text-xs text-white glass-card border-white/20 rounded p-2 backdrop-blur-sm">
@@ -787,12 +731,12 @@ ${selectedCards.map(card => `
             <div className={`text-xs text-center mt-2 font-light tracking-wide transition-colors duration-300 ${
               isOverChatBox ? 'text-white text-glow' : 'text-white/50'
             }`}>
-              {isOverChatBox ? '✨ RELEASE TO ADD COSMIC CONTEXT ✨' : 'DRAG COSMIC CARDS HERE TO ADD CONTEXT'}
+              {isOverChatBox ? '✨ RELEASE TO ADD COSMIC CONTEXT ✨' : 'DRAG BOOKMARKED CARDS HERE TO ADD CONTEXT'}
             </div>
           </div>
         </div>
 
-        {/* Enhanced Cosmic CSS - Same as Hero */}
+        {/* Enhanced Cosmic CSS */}
         <style jsx global>{`
           @keyframes vanish {
             0% { 
@@ -820,297 +764,17 @@ ${selectedCards.map(card => `
             overflow: hidden;
           }
 
-          .starfield-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-
-          .star {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: white;
-            border-radius: 50%;
-            animation: twinkle linear infinite;
-          }
-
-          .star:nth-child(2n) {
-            width: 1px;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.8);
-          }
-
-          .star:nth-child(3n) {
-            width: 3px;
-            height: 3px;
-            background: rgba(255, 255, 255, 0.9);
-          }
-
-          .star:nth-child(4n) {
-            background: rgba(173, 216, 230, 0.8);
-          }
-
-          .star:nth-child(5n) {
-            background: rgba(255, 182, 193, 0.8);
-          }
-
-          .star:nth-child(6n) {
-            background: rgba(255, 255, 224, 0.9);
-          }
-
-          @keyframes twinkle {
+          @keyframes float {
             0%, 100% {
-              opacity: 0.3;
-              transform: scale(1);
+              transform: translateY(0px);
             }
             50% {
-              opacity: 1;
-              transform: scale(1.2);
+              transform: translateY(-10px);
             }
           }
-
-          /* Stardust Particles */
-          .stardust-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-
-          .stardust {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            animation: stardustFloat linear infinite;
-          }
-
-          .stardust:nth-child(2n) {
-            background: rgba(135, 206, 235, 0.5);
-            animation-duration: 12s;
-          }
-
-          .stardust:nth-child(3n) {
-            background: rgba(255, 192, 203, 0.4);
-            animation-duration: 15s;
-          }
-
-          .stardust:nth-child(4n) {
-            background: rgba(255, 215, 0, 0.3);
-            animation-duration: 18s;
-          }
-
-          @keyframes stardustFloat {
-            0% {
-              transform: translateY(100vh) translateX(0) scale(0);
-              opacity: 0;
-            }
-            10% {
-              opacity: 1;
-              transform: scale(1);
-            }
-            90% {
-              opacity: 1;
-            }
-            100% {
-              transform: translateY(-10vh) translateX(50px) scale(0);
-              opacity: 0;
-            }
-          }
-
-          /* Nebula Clouds */
-          .nebula-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-
-          .nebula {
-            position: absolute;
-            width: 300px;
-            height: 200px;
-            border-radius: 50%;
-            background: radial-gradient(
-              ellipse at center,
-              var(--nebula-color, #4A90E2) 0%,
-              rgba(74, 144, 226, 0.3) 30%,
-              rgba(74, 144, 226, 0.1) 60%,
-              transparent 100%
-            );
-            filter: blur(40px);
-            animation: nebulaFlow linear infinite;
-            opacity: 0.4;
-          }
-
-          .nebula:nth-child(2n) {
-            width: 400px;
-            height: 250px;
-            filter: blur(60px);
-            opacity: 0.3;
-          }
-
-          .nebula:nth-child(3n) {
-            width: 200px;
-            height: 150px;
-            filter: blur(30px);
-            opacity: 0.5;
-          }
-
-          @keyframes nebulaFlow {
-            0% {
-              transform: translateX(-50px) translateY(0) rotate(0deg) scale(0.8);
-              opacity: 0.2;
-            }
-            25% {
-              opacity: 0.6;
-              transform: scale(1.1);
-            }
-            50% {
-              transform: translateX(25px) translateY(-20px) rotate(180deg) scale(1);
-              opacity: 0.4;
-            }
-            75% {
-              opacity: 0.7;
-              transform: scale(0.9);
-            }
-            100% {
-              transform: translateX(50px) translateY(0) rotate(360deg) scale(0.8);
-              opacity: 0.2;
-            }
-          }
-
-          /* Cosmic Dust Trails */
-          .cosmic-dust-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-
-          .cosmic-dust {
-            position: absolute;
-            width: 2px;
-            height: 80px;
-            background: linear-gradient(
-              to bottom,
-              transparent 0%,
-              var(--dust-color, #FFD700) 50%,
-              transparent 100%
-            );
-            border-radius: 50%;
-            animation: cosmicDustTrail linear infinite;
-            opacity: 0.3;
-          }
-
-          .cosmic-dust:nth-child(2n) {
-            height: 120px;
-            width: 1px;
-            opacity: 0.2;
-          }
-
-          .cosmic-dust:nth-child(3n) {
-            height: 60px;
-            width: 3px;
-            opacity: 0.4;
-          }
-
-          @keyframes cosmicDustTrail {
-            0% {
-              transform: translateY(-100px) translateX(0) rotate(45deg);
-              opacity: 0;
-            }
-            10% {
-              opacity: 0.6;
-            }
-            90% {
-              opacity: 0.3;
-            }
-            100% {
-              transform: translateY(calc(100vh + 100px)) translateX(200px) rotate(45deg);
-              opacity: 0;
-            }
-          }
-
-          /* Distant Galaxies */
-          .galaxy-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-
-          .galaxy {
-            position: absolute;
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background: radial-gradient(
-              ellipse at center,
-              rgba(255, 255, 255, 0.1) 0%,
-              rgba(135, 206, 235, 0.05) 30%,
-              rgba(255, 192, 203, 0.03) 60%,
-              transparent 100%
-            );
-            filter: blur(20px);
-            animation: galaxyRotate linear infinite;
-            opacity: 0.2;
-          }
-
-          .galaxy:nth-child(2n) {
-            width: 100px;
-            height: 100px;
-            opacity: 0.15;
-          }
-
-          .galaxy:nth-child(3n) {
-            width: 200px;
-            height: 200px;
-            opacity: 0.1;
-          }
-
-          @keyframes galaxyRotate {
-            0% {
-              transform: rotate(0deg) scale(0.8);
-              opacity: 0.1;
-            }
-            50% {
-              transform: rotate(180deg) scale(1.2);
-              opacity: 0.3;
-            }
-            100% {
-              transform: rotate(360deg) scale(0.8);
-              opacity: 0.1;
-            }
-          }
-
-          /* Enhanced cosmic atmosphere */
-          .starfield-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(
-              ellipse at 20% 30%,
-              rgba(74, 144, 226, 0.1) 0%,
-              transparent 50%
-            ),
-            radial-gradient(
-              ellipse at 80% 70%,
-              rgba(155, 89, 182, 0.08) 0%,
-              transparent 50%
-            ),
-            radial-gradient(
-              ellipse at 50% 50%,
-              rgba(231, 76, 60, 0.05) 0%,
-              transparent 50%
-            );
-            pointer-events: none;
+          
+          .animate-float {
+            animation: float 6s ease-in-out infinite;
           }
         `}</style>
       </div>

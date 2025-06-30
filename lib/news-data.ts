@@ -35,6 +35,18 @@ export interface ProcessedNewsArticle {
   emotionScores: Record<EmotionType, number>;
 }
 
+export interface BookmarkedArticle {
+  id: string;
+  user_id: string;
+  news_id: string;
+  title: string;
+  subreddit: string;
+  emotion: string;
+  emotion_intensity: number;
+  source_url: string;
+  bookmarked_at: string;
+}
+
 // Map database emotion columns to our EmotionType
 const emotionMapping: Record<string, EmotionType> = {
   joy: 'joy',
@@ -202,25 +214,19 @@ export async function fetchNewsArticles(options: {
   }
 }
 
-// Fetch trending articles (high intensity, recent)
-export async function fetchTrendingArticles(limit: number = 50): Promise<ProcessedNewsArticle[]> {
-  console.log('📈 Fetching trending articles from database...');
+// Fetch trending articles (most recent 20 articles)
+export async function fetchTrendingArticles(limit: number = 20): Promise<ProcessedNewsArticle[]> {
+  console.log('📈 Fetching most recent trending articles from database...');
   
   const articles = await fetchNewsArticles({
-    limit: limit * 2, // Fetch more to filter for high intensity
+    limit,
     subreddits: ['worldnews', 'politics'], // Keep trending focused on main news
     sortBy: 'timestamp',
     sortOrder: 'desc'
   });
 
-  // Filter for high intensity articles and sort by intensity
-  const trendingArticles = articles
-    .filter(article => article.intensity > 0.6) // Only high intensity articles
-    .sort((a, b) => b.intensity - a.intensity) // Sort by intensity descending
-    .slice(0, limit); // Take top articles
-
-  console.log(`✅ Found ${trendingArticles.length} trending articles`);
-  return trendingArticles;
+  console.log(`✅ Found ${articles.length} trending articles`);
+  return articles;
 }
 
 // Fetch articles for octant visualization - Gets ALL articles
@@ -306,6 +312,60 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
     return result;
   } catch (error) {
     console.error('❌ Error fetching historical articles:', error);
+    throw error;
+  }
+}
+
+// Fetch user bookmarks
+export async function fetchUserBookmarks(userId: string): Promise<BookmarkedArticle[]> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured. Please check your environment variables.');
+  }
+
+  try {
+    console.log('📚 Fetching user bookmarks from database...');
+    
+    const { data, error } = await supabase
+      .from('cosmark_bookmarks')
+      .select('*')
+      .eq('user_id', userId)
+      .order('bookmarked_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching bookmarks:', error);
+      throw new Error(`Database query failed: ${error.message}`);
+    }
+
+    console.log(`✅ Found ${data?.length || 0} bookmarks for user`);
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error fetching user bookmarks:', error);
+    throw error;
+  }
+}
+
+// Delete user bookmark
+export async function deleteUserBookmark(bookmarkId: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured. Please check your environment variables.');
+  }
+
+  try {
+    console.log('🗑️ Deleting bookmark from database...');
+    
+    const { error } = await supabase
+      .from('cosmark_bookmarks')
+      .delete()
+      .eq('id', bookmarkId);
+
+    if (error) {
+      console.error('❌ Error deleting bookmark:', error);
+      throw new Error(`Database delete failed: ${error.message}`);
+    }
+
+    console.log('✅ Bookmark deleted successfully');
+  } catch (error) {
+    console.error('❌ Error deleting bookmark:', error);
     throw error;
   }
 }
