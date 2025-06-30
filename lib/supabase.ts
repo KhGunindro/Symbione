@@ -6,45 +6,20 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // Check if Supabase is properly configured
 export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
 
-// Create a mock client for development when Supabase is not configured
-const createMockClient = () => ({
-  from: () => ({
-    select: () => ({ data: [], error: null }),
-    insert: () => ({ data: null, error: null }),
-    update: () => ({ data: null, error: null }),
-    delete: () => ({ data: null, error: null }),
-    in: () => ({ data: [], error: null }),
-    order: () => ({ data: [], error: null }),
-    limit: () => ({ data: [], error: null }),
-    gte: () => ({ data: [], error: null }),
-    lte: () => ({ data: [], error: null }),
-  }),
-  auth: {
-    signUp: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-    signInWithPassword: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-    signInWithOAuth: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-    signOut: () => Promise.resolve({ error: null }),
-    getUser: () => Promise.resolve({ data: { user: null } }),
-    getSession: () => Promise.resolve({ data: { session: null } }),
-    resetPasswordForEmail: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-    updateUser: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }),
-    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-  },
-});
+if (!isSupabaseConfigured) {
+  console.error('❌ Supabase configuration missing. Please check your environment variables.');
+  console.error('Required: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
+}
 
-// Create Supabase client or mock client
-export const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
-  : createMockClient() as any;
+// Create Supabase client
+export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
 // Log configuration status
 if (typeof window !== 'undefined') {
-  if (!isSupabaseConfigured) {
-    console.warn('⚠️ Supabase not configured. Create a .env.local file with:');
-    console.warn('NEXT_PUBLIC_SUPABASE_URL=your_supabase_url');
-    console.warn('NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key');
+  if (isSupabaseConfigured) {
+    console.log('✅ Supabase connected successfully to:', supabaseUrl);
   } else {
-    console.log('✅ Supabase configured successfully');
+    console.warn('⚠️ Supabase not configured. Please add environment variables.');
   }
 }
 
@@ -114,3 +89,45 @@ export interface Database {
     };
   };
 }
+
+// Test database connection
+export const testDatabaseConnection = async () => {
+  try {
+    console.log('🔍 Testing database connection...');
+    
+    const { data, error, count } = await supabase
+      .from('classified_reddit_news')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.error('❌ Database connection failed:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Database connected successfully! Found ${count} articles in database.`);
+    return { success: true, count };
+  } catch (error) {
+    console.error('❌ Database connection test failed:', error);
+    return { success: false, error: 'Connection test failed' };
+  }
+};
+
+// Test authentication
+export const testAuthConnection = async () => {
+  try {
+    console.log('🔍 Testing authentication...');
+    
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error && error.message !== 'Invalid JWT') {
+      console.error('❌ Auth connection failed:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    console.log('✅ Authentication system connected successfully!');
+    return { success: true, user };
+  } catch (error) {
+    console.error('❌ Auth connection test failed:', error);
+    return { success: false, error: 'Auth test failed' };
+  }
+};
