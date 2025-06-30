@@ -28,7 +28,7 @@ import {
 interface Message {
   id: string;
   text: string;
-  context: NewsCard[];
+  context?: NewsCard[];
   timestamp: string;
   sender: 'user' | 'ai';
 }
