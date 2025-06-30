@@ -337,7 +337,7 @@ export default function SignupPage() {
                           placeholder="First name"
                           value={formData.firstName}
                           onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                          className={`h-14 bg-grey border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
                             errors.firstName ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
