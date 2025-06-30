@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAppSelector } from '@/lib/store/hooks';
 import { getEmotionTheme } from '@/lib/emotions';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { fetchUserBookmarks, deleteUserBookmark, BookmarkedArticle } from '@/lib/news-data';
 import { musicManager } from '@/lib/music';
 import { 
@@ -161,6 +161,13 @@ export default function ChatPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Check if Supabase is configured
+        if (!isSupabaseConfigured || !supabase) {
+          console.error('Supabase is not configured. Redirecting to login.');
+          router.push('/login');
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -207,7 +214,10 @@ export default function ChatPage() {
   // Load user bookmarks
   useEffect(() => {
     const loadBookmarks = async () => {
-      if (!user) return;
+      if (!user || !isSupabaseConfigured || !supabase) {
+        setLoadingBookmarks(false);
+        return;
+      }
       
       try {
         setLoadingBookmarks(true);

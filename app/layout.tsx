@@ -1,10 +1,19 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import ReduxProvider from '@/components/providers/redux-provider';
-import EmotionUpdater from '@/components/providers/emotion-updater';
+import dynamic from 'next/dynamic';
 
 const inter = Inter({ subsets: ['latin'] });
+
+// Dynamically import ReduxProvider with no SSR to prevent redux-persist issues
+const ReduxProvider = dynamic(() => import('@/components/providers/redux-provider'), {
+  ssr: false,
+});
+
+// Dynamically import EmotionUpdater with no SSR
+const EmotionUpdater = dynamic(() => import('@/components/providers/emotion-updater'), {
+  ssr: false,
+});
 
 export const metadata: Metadata = {
   title: 'Symbione - Emotionally Intelligent News',
