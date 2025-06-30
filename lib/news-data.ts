@@ -142,8 +142,10 @@ export async function fetchNewsArticles(options: {
   sortBy?: 'timestamp' | 'intensity';
   sortOrder?: 'asc' | 'desc';
 } = {}): Promise<ProcessedNewsArticle[]> {
-  if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured. Please check your environment variables.');
+  // Return empty array during build/static generation
+  if (typeof window === 'undefined' || !supabase || !isSupabaseConfigured) {
+    console.warn('⚠️ Database not available during build, returning empty array');
+    return [];
   }
 
   try {
@@ -210,7 +212,7 @@ export async function fetchNewsArticles(options: {
     return processedArticles;
   } catch (error) {
     console.error('❌ Error fetching news articles:', error);
-    throw error;
+    return []; // Return empty array instead of throwing during build
   }
 }
 
@@ -245,6 +247,11 @@ export async function fetchOctantArticles(limit: number = 1000): Promise<Process
 export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArticle[]> {
   console.log('📚 Fetching historical octant articles from ALL subreddits...');
   
+  // Return empty array during build/static generation
+  if (typeof window === 'undefined' || !supabase) {
+    return [];
+  }
+  
   try {
     // Get articles from the last 30 days to have enough data
     const endDate = new Date();
@@ -261,7 +268,7 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
 
     if (error) {
       console.error('❌ Error fetching historical articles:', error);
-      throw new Error(`Database query failed: ${error.message}`);
+      return [];
     }
 
     if (!data || data.length === 0) {
@@ -312,14 +319,14 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
     return result;
   } catch (error) {
     console.error('❌ Error fetching historical articles:', error);
-    throw error;
+    return [];
   }
 }
 
 // Fetch user bookmarks
 export async function fetchUserBookmarks(userId: string): Promise<BookmarkedArticle[]> {
-  if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured. Please check your environment variables.');
+  if (!isSupabaseConfigured || !supabase || typeof window === 'undefined') {
+    return [];
   }
 
   try {
@@ -333,21 +340,21 @@ export async function fetchUserBookmarks(userId: string): Promise<BookmarkedArti
 
     if (error) {
       console.error('❌ Error fetching bookmarks:', error);
-      throw new Error(`Database query failed: ${error.message}`);
+      return [];
     }
 
     console.log(`✅ Found ${data?.length || 0} bookmarks for user`);
     return data || [];
   } catch (error) {
     console.error('❌ Error fetching user bookmarks:', error);
-    throw error;
+    return [];
   }
 }
 
 // Delete user bookmark
 export async function deleteUserBookmark(bookmarkId: string): Promise<void> {
-  if (!isSupabaseConfigured) {
-    throw new Error('Supabase is not configured. Please check your environment variables.');
+  if (!isSupabaseConfigured || !supabase || typeof window === 'undefined') {
+    throw new Error('Database not available');
   }
 
   try {
@@ -394,6 +401,11 @@ export function getEmotionDistribution(articles: ProcessedNewsArticle[]): Record
 
 // Get current dominant emotion from recent articles
 export async function getCurrentDominantEmotion(): Promise<EmotionType> {
+  // Return default during build/static generation
+  if (typeof window === 'undefined') {
+    return 'joy';
+  }
+
   try {
     console.log('🎭 Fetching current dominant emotion from ALL articles...');
     

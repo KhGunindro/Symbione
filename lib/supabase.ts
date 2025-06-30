@@ -11,10 +11,27 @@ if (!isSupabaseConfigured) {
   console.error('Required: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
+// Create Supabase client with optimized settings for static export
+export const supabase = isSupabaseConfigured ? createClient(supabaseUrl!, supabaseAnonKey!, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+  realtime: {
+    // Disable realtime for static export to avoid WebSocket issues
+    params: {
+      eventsPerSecond: 0,
+    },
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'symbione-web',
+    },
+  },
+}) : null;
 
-// Log configuration status
+// Log configuration status only in browser
 if (typeof window !== 'undefined') {
   if (isSupabaseConfigured) {
     console.log('✅ Supabase connected successfully to:', supabaseUrl);
@@ -90,8 +107,13 @@ export interface Database {
   };
 }
 
-// Test database connection
+// Test database connection with error handling for static export
 export const testDatabaseConnection = async () => {
+  // Skip database tests during build/static generation
+  if (typeof window === 'undefined' || !supabase) {
+    return { success: false, error: 'Database not available during build' };
+  }
+
   try {
     console.log('🔍 Testing database connection...');
     
@@ -112,8 +134,13 @@ export const testDatabaseConnection = async () => {
   }
 };
 
-// Test authentication
+// Test authentication with error handling for static export
 export const testAuthConnection = async () => {
+  // Skip auth tests during build/static generation
+  if (typeof window === 'undefined' || !supabase) {
+    return { success: false, error: 'Auth not available during build' };
+  }
+
   try {
     console.log('🔍 Testing authentication...');
     
