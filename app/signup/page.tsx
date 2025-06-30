@@ -7,7 +7,6 @@ import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { supabase } from '@/lib/supabase';
 import { getDominantEmotion } from '@/lib/emotions';
@@ -41,8 +40,6 @@ export default function SignupPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [acceptMarketing, setAcceptMarketing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
@@ -195,9 +192,6 @@ export default function SignupPage() {
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    if (!acceptTerms) {
-      newErrors.terms = 'Please accept the terms and conditions';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -217,8 +211,7 @@ export default function SignupPage() {
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,
-            full_name: `${formData.firstName} ${formData.lastName}`,
-            marketing_consent: acceptMarketing
+            full_name: `${formData.firstName} ${formData.lastName}`
           }
         }
       });
@@ -344,7 +337,7 @@ export default function SignupPage() {
                           placeholder="First name"
                           value={formData.firstName}
                           onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                          className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
                             errors.firstName ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -359,7 +352,7 @@ export default function SignupPage() {
                           placeholder="Last name"
                           value={formData.lastName}
                           onChange={(e) => handleInputChange('lastName', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                          className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
                             errors.lastName ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -377,7 +370,7 @@ export default function SignupPage() {
                         placeholder="Enter your email address"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                        className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
                           errors.email ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
@@ -395,7 +388,7 @@ export default function SignupPage() {
                           placeholder="Create a strong password (min 6 characters)"
                           value={formData.password}
                           onChange={(e) => handleInputChange('password', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-sm focus:shadow-lg ${
+                          className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-sm focus:shadow-lg ${
                             errors.password ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -422,7 +415,7 @@ export default function SignupPage() {
                           placeholder="Confirm your password"
                           value={formData.confirmPassword}
                           onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-sm focus:shadow-lg ${
+                          className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-sm focus:shadow-lg ${
                             errors.confirmPassword ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -439,45 +432,6 @@ export default function SignupPage() {
                       {errors.confirmPassword && (
                         <p className="text-red-500 text-sm mt-2">{errors.confirmPassword}</p>
                       )}
-                    </div>
-
-                    {/* Checkboxes */}
-                    <div className="space-y-4">
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id="terms"
-                          checked={acceptTerms}
-                          onCheckedChange={setAcceptTerms}
-                          className="w-5 h-5 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white transition-all duration-200 hover:scale-110 mt-0.5"
-                          disabled={loading}
-                        />
-                        <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer transition-colors duration-200 hover:text-black leading-relaxed">
-                          I agree to the{" "}
-                          <Link href="/terms" className="underline hover:text-black font-medium">
-                            Terms & Conditions
-                          </Link>{" "}
-                          and{" "}
-                          <Link href="/privacy" className="underline hover:text-black font-medium">
-                            Privacy Policy
-                          </Link>
-                        </label>
-                      </div>
-                      {errors.terms && (
-                        <p className="text-red-500 text-sm">{errors.terms}</p>
-                      )}
-
-                      <div className="flex items-start space-x-3">
-                        <Checkbox
-                          id="marketing"
-                          checked={acceptMarketing}
-                          onCheckedChange={setAcceptMarketing}
-                          className="w-5 h-5 rounded border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white transition-all duration-200 hover:scale-110 mt-0.5"
-                          disabled={loading}
-                        />
-                        <label htmlFor="marketing" className="text-sm text-gray-600 cursor-pointer transition-colors duration-200 hover:text-black leading-relaxed">
-                          I would like to receive marketing communications about new features and updates (optional)
-                        </label>
-                      </div>
                     </div>
 
                     {/* Submit Error */}

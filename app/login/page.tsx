@@ -368,7 +368,7 @@ export default function LoginPage() {
                         placeholder="Enter your email address"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                        className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
                           errors.email ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
@@ -385,7 +385,7 @@ export default function LoginPage() {
                         placeholder="Enter your password"
                         value={formData.password}
                         onChange={(e) => handleInputChange('password', e.target.value)}
-                        className={`h-14 bg-gray-50 border-2 border-gray-300 rounded-xl transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
+                        className={`h-14 bg-white border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-black text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-sm focus:shadow-lg ${
                           errors.password ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
