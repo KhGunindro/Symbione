@@ -340,6 +340,13 @@ export default function SignupPage() {
                           className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
                             errors.firstName ? 'border-red-500' : ''
                           }`}
+                            style={{
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    '::placeholder': {
+      color: '#6b7280', // gray-500 equivalent
+      opacity: 1
+    }
+  }}
                           disabled={loading}
                           style={{
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
