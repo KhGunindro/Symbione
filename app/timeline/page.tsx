@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { EMOTIONS, EmotionType, getEmotionTheme, getDominantEmotion } from '@/lib/emotions';
 import { ProcessedNewsArticle, fetchNewsArticles, getEmotionDistribution } from '@/lib/news-data';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
-import { Clock, Calendar, Play, Pause, SkipBack, SkipForward, TrendingUp, Database, Zap, CalendarDays } from 'lucide-react';
+import { Clock, Calendar, Play, Pause, SkipBack, SkipForward, TrendingUp, Database, Zap, CalendarDays, CheckCircle, Sparkles, FileText, RefreshCw, SearchX } from 'lucide-react';
 
 interface TimelineData {
   date: string;
@@ -337,10 +337,10 @@ export default function TimelinePage() {
 
         <Navigation />
         
-        <div className="relative z-10 pt-16 p-6">
+        <div className="relative z-10 p-6">
           <div className="max-w-7xl mx-auto">
-            {/* Premium Header */}
-            <div className="mb-8">
+            {/* Premium Header with mt-16 */}
+            <div className="mb-8 mt-16">
               <h1 className="text-3xl font-bold mb-2 flex items-center">
                 <CalendarDays className="h-8 w-8 mr-3 text-blue-400" />
                 Future Emotional Timeline
@@ -372,7 +372,7 @@ export default function TimelinePage() {
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white/50 mx-auto mb-6"></div>
-                  <div className="text-white text-xl font-semibold">Preparing Future Timeline</div>
+                  <div className="text-white text-xl font-semibold text-glow">Preparing Future Timeline</div>
                   <div className="text-white/60 text-sm mt-3">
                     Setting up the next 30 days with zero emotions by default...
                   </div>
@@ -382,7 +382,7 @@ export default function TimelinePage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Timeline Control */}
                 <div className="lg:col-span-2">
-                  <Card className="glass-card border-white/20 hover-glow mb-6">
+                  <Card className="glass-card border-white/20 hover-glow mb-6 premium-hover">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <div className="flex items-center">
@@ -433,7 +433,7 @@ export default function TimelinePage() {
                             variant="outline"
                             size="sm"
                             onClick={() => setCurrentDay([Math.max(0, currentDay[0] - 7)])}
-                            className="glass-button"
+                            className="glass-button premium-hover"
                           >
                             <SkipBack className="h-4 w-4" />
                           </Button>
@@ -441,7 +441,7 @@ export default function TimelinePage() {
                             variant="outline"
                             size="sm"
                             onClick={handlePlayPause}
-                            className="glass-button"
+                            className="glass-button premium-hover"
                           >
                             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                           </Button>
@@ -449,7 +449,7 @@ export default function TimelinePage() {
                             variant="outline"
                             size="sm"
                             onClick={() => setCurrentDay([Math.min(timelineData.length - 1, currentDay[0] + 7)])}
-                            className="glass-button"
+                            className="glass-button premium-hover"
                           >
                             <SkipForward className="h-4 w-4" />
                           </Button>
@@ -459,7 +459,7 @@ export default function TimelinePage() {
                   </Card>
 
                   {/* Anchor Story */}
-                  <Card className="glass-card border-white/20 hover-glow">
+                  <Card className="glass-card border-white/20 hover-glow premium-hover">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span>{currentData.isFuture ? 'Future Story Slot' : 'Today\'s Peak Story'}</span>
@@ -484,8 +484,11 @@ export default function TimelinePage() {
                               <span className="text-sm text-gray-400">Emotional Intensity:</span>
                               <div className="flex-1 max-w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
                                 <div 
-                                  className={`h-full bg-gradient-to-r ${emotionTheme.gradient} transition-all duration-300`}
-                                  style={{ width: `${currentData.intensity * 100}%` }}
+                                  className={`h-full bg-gradient-to-r ${emotionTheme.gradient} transition-all duration-300 rounded-full`}
+                                  style={{ 
+                                    width: `${currentData.intensity * 100}%`,
+                                    boxShadow: `0 0 10px ${emotionTheme.color}40`
+                                  }}
                                 />
                               </div>
                               <span className="text-sm text-gray-400">{Math.round(currentData.intensity * 100)}%</span>
@@ -495,7 +498,7 @@ export default function TimelinePage() {
                                 variant="outline" 
                                 size="sm" 
                                 asChild 
-                                className="glass-button mt-3"
+                                className="glass-button mt-3 premium-hover btn-shimmer"
                               >
                                 <a href={currentData.anchorStory.url} target="_blank" rel="noopener noreferrer">
                                   Read Full Article
@@ -507,12 +510,12 @@ export default function TimelinePage() {
                           <div className="text-center py-8">
                             {currentData.isFuture ? (
                               <>
-                                <div className="text-blue-400 mb-2 text-lg">📅 Future Day</div>
+                                <div className="text-blue-400 mb-2 text-lg text-glow">📅 Future Day</div>
                                 <div className="text-gray-400 mb-2">This day hasn't happened yet</div>
                                 <div className="text-sm text-gray-500">
                                   Emotions will automatically update when news develops for this date
                                 </div>
-                                <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                <div className="mt-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 animate-pulse">
                                   <div className="text-xs text-blue-300">
                                     🔄 Auto-updates enabled • All emotions currently at 0
                                   </div>
@@ -520,7 +523,8 @@ export default function TimelinePage() {
                               </>
                             ) : (
                               <>
-                                <div className="text-gray-400 mb-2">No articles found for today</div>
+                                <SearchX className="h-12 w-12 text-gray-500 mx-auto mb-3" />
+                                <div className="text-gray-400 mb-2 text-lg font-semibold">No articles found for today</div>
                                 <div className="text-sm text-gray-500">
                                   Check back later as news develops throughout the day
                                 </div>
@@ -535,7 +539,7 @@ export default function TimelinePage() {
 
                 {/* Emotion Breakdown */}
                 <div>
-                  <Card className="glass-card border-white/20 hover-glow">
+                  <Card className="glass-card border-white/20 hover-glow premium-hover">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span>Emotion Breakdown</span>
@@ -562,10 +566,11 @@ export default function TimelinePage() {
                                 <span className="text-sm flex-1">{theme.name}</span>
                                 <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
                                   <div 
-                                    className="h-full transition-all duration-300"
+                                    className="h-full transition-all duration-300 rounded-full"
                                     style={{ 
                                       width: `${percentage}%`,
-                                      backgroundColor: theme.color
+                                      backgroundColor: theme.color,
+                                      boxShadow: `0 0 10px ${theme.color}40`
                                     }}
                                   />
                                 </div>
@@ -589,39 +594,57 @@ export default function TimelinePage() {
                   </Card>
 
                   {/* Quick Stats */}
-                  <Card className="glass-card border-white/20 hover-glow mt-6">
+                  <Card className="glass-card border-white/20 hover-glow mt-6 premium-hover">
                     <CardHeader>
                       <CardTitle>Day Statistics</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Day:</span>
-                          <span>{currentDay[0] + 1}/30</span>
+                          <span className="text-gray-400 flex items-center">
+                            <CalendarDays className="h-4 w-4 mr-2" />
+                            Day:
+                          </span>
+                          <span className="text-glow">{currentDay[0] + 1}/30</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Status:</span>
-                          <span className={currentData.isFuture ? 'text-blue-400' : 'text-green-400'}>
+                          <span className="text-gray-400 flex items-center">
+                            {currentData.isFuture ? <Clock className="h-4 w-4 mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                            Status:
+                          </span>
+                          <span className={`text-glow ${currentData.isFuture ? 'text-blue-400' : 'text-green-400'}`}>
                             {currentData.isFuture ? 'Future' : 'Current'}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Dominant emotion:</span>
-                          <span className={currentData.isFuture ? 'text-gray-500' : emotionTheme.textColor}>
+                          <span className="text-gray-400 flex items-center">
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Dominant emotion:
+                          </span>
+                          <span className={`text-glow ${currentData.isFuture ? 'text-gray-500' : emotionTheme.textColor}`}>
                             {currentData.isFuture ? 'None (0)' : emotionTheme.name}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Peak intensity:</span>
-                          <span>{Math.round(currentData.intensity * 100)}%</span>
+                          <span className="text-gray-400 flex items-center">
+                            <Zap className="h-4 w-4 mr-2" />
+                            Peak intensity:
+                          </span>
+                          <span className="text-glow">{Math.round(currentData.intensity * 100)}%</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Articles:</span>
-                          <span>{currentData.totalArticles}</span>
+                          <span className="text-gray-400 flex items-center">
+                            <FileText className="h-4 w-4 mr-2" />
+                            Articles:
+                          </span>
+                          <span className="text-glow">{currentData.totalArticles}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-400">Updates:</span>
-                          <span className="text-blue-400">Auto-Enabled</span>
+                          <span className="text-gray-400 flex items-center">
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Updates:
+                          </span>
+                          <span className="text-blue-400 text-glow">Auto-Enabled</span>
                         </div>
                       </div>
                     </CardContent>
