@@ -11,37 +11,37 @@ export interface MusicConfig {
 export const EMOTION_MUSIC: Record<EmotionType, MusicConfig> = {
   joy: {
     emotion: 'joy',
-    filename: 'joy-bright-piano.mp3', // Bright piano/electro music
+    filename: '(Joy)ES_Getaway - Ruiqi Zhao.mp3', // Bright piano/electro music
     volume: 0.3,
     loop: true
   },
   trust: {
     emotion: 'trust',
-    filename: 'trust-calm-ambient.mp3', // Calm ambient music
+    filename: '(Peace Happy)ES_In a Trance - Jon Bjork.mp3', // Calm ambient music
     volume: 0.3,
     loop: true
   },
   fear: {
     emotion: 'fear',
-    filename: 'fear-tense-drones.mp3', // Tense drones music
+    filename: '(Fear)ES_The Mire - Anders Schill Paulsen.mp3', // Tense drones music
     volume: 0.3,
     loop: true
   },
   surprise: {
     emotion: 'surprise',
-    filename: 'surprise-chimes-synth.mp3', // Chimes/synth pop music
+    filename: '(Surprise)ES_Adaption - Out To The World.mp3', // Chimes/synth pop music
     volume: 0.3,
     loop: true
   },
   sadness: {
     emotion: 'sadness',
-    filename: 'sadness-ambient-pads.mp3', // Ambient soft pads music
+    filename: '(Sentimental)ES_Buried Time - Rand Aldo.mp3', // Ambient soft pads music
     volume: 0.3,
     loop: true
   },
   anticipation: {
     emotion: 'anticipation',
-    filename: 'anticipation-minimal-electronic.mp3', // Minimal electronic music
+    filename: '(anticipation)ES_DOX - Lennon Hutton.mp3', // Minimal electronic music
     volume: 0.3,
     loop: true
   },
@@ -53,7 +53,7 @@ export const EMOTION_MUSIC: Record<EmotionType, MusicConfig> = {
   },
   disgust: {
     emotion: 'disgust',
-    filename: 'disgust-dissonant-textures.mp3', // Dissonant textures music
+    filename: '(disgust)ES_Uranium - Lennon Hutton.mp3', // Dissonant textures music
     volume: 0.3,
     loop: true
   }
@@ -62,12 +62,12 @@ export const EMOTION_MUSIC: Record<EmotionType, MusicConfig> = {
 // Chat page specific music
 export const CHAT_MUSIC = {
   ambient: {
-    filename: 'chat-ambient-loop.mp3', // Ambient background music for chat
+    filename: 'ES_Dozin\' Off - Timothy Infinite.mp3', // Ambient background music for chat
     volume: 0.3,
     loop: true
   },
   focus: {
-    filename: 'chat-focus-loop.mp3', // Focus/concentration music for chat
+    filename: 'ES_Ferns - Guustavv.mp3', // Focus/concentration music for chat
     volume: 0.3,
     loop: true
   }
