@@ -355,7 +355,6 @@ export default function TimelinePage() {
             {/* Premium Header with increased margin */}
             <div className="mb-8 mt-24">
               <h1 className="text-3xl font-bold mb-2 flex items-center">
-                <CalendarDays className="h-8 w-8 mr-3 text-blue-400" />
                 Emotional Timeline
               </h1>
               <p className="text-gray-400 text-lg">
