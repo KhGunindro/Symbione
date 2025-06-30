@@ -25,6 +25,8 @@ export default function TrendingPage() {
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   
   const [bookmarkingStates, setBookmarkingStates] = useState<Record<string, boolean>>({});
+  // --- SOLUTION: Step 1 - Add state for successfully bookmarked articles ---
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
   // Play emotion-based music when page loads
   useEffect(() => {
@@ -59,6 +61,27 @@ export default function TrendingPage() {
     checkAuth();
   }, [router]);
 
+  // --- SOLUTION: Step 2 - Fetch existing bookmarks when user is authenticated ---
+  useEffect(() => {
+    if (user) {
+      const fetchBookmarks = async () => {
+        const { data, error } = await supabase
+          .from('cosmark_bookmarks')
+          .select('news_id')
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('Error fetching bookmarks:', error);
+        } else {
+          const ids = new Set(data.map(b => b.news_id));
+          setBookmarkedIds(ids);
+        }
+      };
+      fetchBookmarks();
+    }
+  }, [user]);
+
+
   // Load trending articles on component mount - fetch 20 most recent
   useEffect(() => {
     if (!loadingAuth && trendingArticles.length === 0) {
@@ -72,6 +95,12 @@ export default function TrendingPage() {
       console.error('User not authenticated');
       showNotification('Please sign in to bookmark articles', 'error');
       return;
+    }
+    
+    // Prevent action if already bookmarked
+    if (bookmarkedIds.has(article.id)) {
+        showNotification('Article is already in your Cosmarks', 'info');
+        return;
     }
 
     // Set loading state for this specific article
@@ -90,7 +119,8 @@ export default function TrendingPage() {
 
       const { data, error } = await supabase
         .from('cosmark_bookmarks')
-        .insert([bookmarkData]);
+        .insert([bookmarkData])
+        .select(); // Use .select() to get the inserted row back
 
       if (error) {
         console.error('Error adding bookmark:', error);
@@ -98,6 +128,10 @@ export default function TrendingPage() {
       } else {
         console.log('Bookmark added successfully:', data);
         showNotification('Added to Cosmark!', 'success');
+        // --- SOLUTION: Step 3 - Update the bookmarked IDs state on success ---
+        if (data && data.length > 0) {
+            setBookmarkedIds(prevIds => new Set(prevIds).add(data[0].news_id));
+        }
       }
     } catch (error) {
       console.error('Unexpected error adding bookmark:', error);
@@ -216,7 +250,9 @@ export default function TrendingPage() {
                 {trendingArticles.map((article) => {
                   const emotionTheme = getEmotionTheme(article.emotion);
                   const isBookmarking = bookmarkingStates[article.id] || false;
-                  
+                  // --- SOLUTION: Step 4 - Check if the article is already bookmarked ---
+                  const isBookmarked = bookmarkedIds.has(article.id);
+
                   return (
                     <Card key={article.id} className="glass-card border-white/20 hover-glow premium-hover group">
                       <CardHeader>
@@ -272,15 +308,19 @@ export default function TrendingPage() {
                               variant="outline" 
                               size="sm" 
                               onClick={() => addBookmark(article)}
-                              disabled={isBookmarking}
+                              // Disable button if it's loading or already bookmarked
+                              disabled={isBookmarking || isBookmarked}
                               className="glass-button border-white/30 text-white hover:bg-white/20 transition-all duration-300"
                             >
                               {isBookmarking ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/50 mr-2" />
                               ) : (
-                                <Bookmark className="h-4 w-4 mr-2" />
+                                // --- SOLUTION: Step 4 (cont.) - Change icon style if bookmarked ---
+                                <Bookmark 
+                                    className={`h-4 w-4 mr-2 ${isBookmarked ? 'fill-white' : ''}`} 
+                                />
                               )}
-                              Cosmark
+                              {isBookmarked ? 'Cosmarked' : 'Cosmark'}
                             </Button>
                             <Button 
                               variant="outline" 

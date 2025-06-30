@@ -302,7 +302,7 @@ export default function Home() {
                   {/* Current Emotion Display - Mobile Optimized with Live Database Status */}
                   <Card className="max-w-lg mx-auto lg:mx-0 glass-card border-white/30 hover-glow animate-float mb-6 sm:mb-8 lg:mb-12 backdrop-blur-md">
                     <CardContent className="p-4 sm:p-6 lg:p-8">
-                      <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
+                      <div className="flex items-center  space-x-2 sm:space-x-3 mb-3 sm:mb-4">
                         <div 
                           className="w-3 h-3 sm:w-4 sm:h-4 rounded-full animate-pulse shadow-lg"
                           style={{ 
@@ -346,7 +346,7 @@ export default function Home() {
                     <Button 
                       size="lg" 
                       onClick={() => router.push('/octants')}
-                      className="glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white px-6 sm:px-8 lg:px-10 py-3 sm:py-4 lg:py-5 text-base sm:text-lg lg:text-xl premium-hover btn-shimmer backdrop-blur-md w-full sm:w-auto"
+                      className="min-w-[350px] glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white px-6 sm:px-8 lg:px-10 py-3 sm:py-4 lg:py-5 text-base sm:text-lg lg:text-xl premium-hover btn-shimmer backdrop-blur-md w-full sm:w-auto"
                     >
                       <span className="flex items-center">
                         <Eye className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 mr-2 lg:mr-3" />

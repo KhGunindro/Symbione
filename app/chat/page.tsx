@@ -718,7 +718,7 @@ ${selectedCards.map(card => `
         {/* Main chat interface */}
         <div 
           ref={chatBoxRef}
-          className={`absolute right-6 top-20 bottom-6 w-96 glass-card backdrop-blur-xl rounded-2xl border-2 flex flex-col transition-all duration-300 z-20 shadow-2xl ${
+          className={`mt-8 absolute right-6 top-20 bottom-6 w-96 glass-card backdrop-blur-xl rounded-2xl border-2 flex flex-col transition-all duration-300 z-20 shadow-2xl ${
             isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/15' : 'border-white/20'
           }`}
           style={{
@@ -729,7 +729,7 @@ ${selectedCards.map(card => `
           <CardHeader className="border-b border-white/20 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <CardTitle className="text-xl font-light tracking-wider text-glow">
+                <CardTitle className="text-xl font-light font-bold tracking-wider text-glow">
                   COSMARK
                 </CardTitle>
               </div>
