@@ -31,7 +31,7 @@ export default function PageLoader({
   const [isLoading, setIsLoading] = useState(true);
   const [showContent, setShowContent] = useState(false);
 
-  const loadingMessage = message || loadingMessages[type];
+  const displayMessage = message || loadingMessages[type];
 
   useEffect(() => {
     // Ensure minimum loading time for smooth experience
@@ -48,7 +48,7 @@ export default function PageLoader({
     return (
       <ParticleLoader
         emotion={emotion}
-        loadingMessage={loadingMessage}
+        message={displayMessage}
         onComplete={() => {
           setIsLoading(false);
           setTimeout(() => setShowContent(true), 300);
