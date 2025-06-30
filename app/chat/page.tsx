@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAppSelector } from '@/lib/store/hooks';
+import { getEmotionTheme } from '@/lib/emotions';
 import { 
   Send, 
   Mic, 
@@ -51,10 +52,11 @@ export default function ChatPage() {
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const dragContainerRef = useRef<HTMLDivElement>(null);
+  const backgroundRef = useRef<HTMLDivElement>(null);
   
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
+  const emotionTheme = getEmotionTheme(dominantEmotion);
 
   // Sample cosmic news cards data
   const newsCardsData: NewsCard[] = [
@@ -130,33 +132,47 @@ export default function ChatPage() {
     </div>
   );
 
-  // Call the real API
+  // Call the real API with proper error handling
   const callChatAPI = async (query: string): Promise<string> => {
     try {
+      console.log('Calling chat API with query:', query);
+      
       const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
       
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ query }),
+        mode: 'cors', // Enable CORS
       });
 
+      console.log('API Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        throw new Error(`API request failed with status: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.response || data.message || 'I received your message but couldn\'t process it properly.';
+      console.log('API Response data:', data);
+      
+      return data.response || data.message || data.answer || 'I received your message but couldn\'t process it properly.';
     } catch (error) {
       console.error('Chat API error:', error);
+      
+      // More specific error handling
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return "I'm having trouble connecting to the cosmic intelligence network. The API might be temporarily unavailable. Please check your connection and try again.";
+      }
+      
       // Fallback response
-      return "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again?";
+      return "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again in a moment?";
     }
   };
 
-  // Handle card mouse down with improved drag isolation
+  // Completely isolated drag handling - NO background interference
   const handleMouseDown = (e: React.MouseEvent, card: NewsCard) => {
     e.preventDefault();
     e.stopPropagation();
@@ -169,17 +185,17 @@ export default function ChatPage() {
     setDraggedCard(card);
     setIsDragging(true);
     
-    // Create a completely isolated drag environment
+    // Completely isolate drag from background
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     
-    // Prevent any background interaction during drag
-    if (dragContainerRef.current) {
-      dragContainerRef.current.style.pointerEvents = 'auto';
+    // Prevent any background events during drag
+    if (backgroundRef.current) {
+      backgroundRef.current.style.pointerEvents = 'none';
     }
   };
 
-  // Enhanced mouse move and mouse up with complete isolation
+  // Enhanced mouse handling with complete background isolation
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging && draggedCard) {
@@ -247,13 +263,14 @@ export default function ChatPage() {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       
-      if (dragContainerRef.current) {
-        dragContainerRef.current.style.pointerEvents = '';
+      // Re-enable background interaction
+      if (backgroundRef.current) {
+        backgroundRef.current.style.pointerEvents = '';
       }
     };
 
     if (isDragging) {
-      // Use capture phase to ensure we get events first
+      // Use capture phase and prevent all other events
       document.addEventListener('mousemove', handleMouseMove, { capture: true, passive: false });
       document.addEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
       
@@ -276,7 +293,7 @@ export default function ChatPage() {
     }
   };
 
-  // Export to Notion
+  // Export to Notion with improved formatting
   const exportToNotion = async () => {
     const exportData = {
       title: `Cosmark Chat Export - ${new Date().toLocaleDateString()}`,
@@ -353,7 +370,7 @@ ${selectedCards.map(card => `
     }
   };
 
-  // Real-time message sending with API integration
+  // Real-time message sending with working API integration
   const sendMessage = async () => {
     if (inputValue.trim() || selectedCards.length > 0) {
       // Add user message immediately
@@ -435,8 +452,14 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* Enhanced Cosmic Background - Completely isolated from drag events */}
-        <div className="fixed inset-0 z-0 pointer-events-none">
+        {/* COMPLETELY ISOLATED Background - No interaction during drag */}
+        <div 
+          ref={backgroundRef}
+          className="fixed inset-0 z-0"
+          style={{ 
+            pointerEvents: isDragging ? 'none' : 'auto'
+          }}
+        >
           {/* Main Starfield */}
           <div className="starfield-container">
             {Array.from({ length: 300 }).map((_, i) => (
@@ -480,9 +503,7 @@ ${selectedCards.map(card => `
                   top: `${Math.random() * 120 - 10}%`,
                   animationDelay: `${Math.random() * 10}s`,
                   animationDuration: `${20 + Math.random() * 30}s`,
-                  '--nebula-color': i % 2 === 0 ? '#4A90E2' : 
-                    i % 3 === 0 ? '#9B59B6' : 
-                    i % 4 === 0 ? '#E74C3C' : '#10B981'
+                  '--nebula-color': emotionTheme.color
                 } as React.CSSProperties}
               />
             ))}
@@ -499,7 +520,7 @@ ${selectedCards.map(card => `
                   top: `${Math.random() * 100}%`,
                   animationDelay: `${Math.random() * 15}s`,
                   animationDuration: `${25 + Math.random() * 20}s`,
-                  '--dust-color': '#FFD700'
+                  '--dust-color': emotionTheme.particleColor
                 } as React.CSSProperties}
               />
             ))}
@@ -508,15 +529,8 @@ ${selectedCards.map(card => `
 
         <Navigation />
 
-        {/* Isolated drag container for cards */}
-        <div 
-          ref={dragContainerRef}
-          className="absolute inset-0 z-10"
-          style={{ 
-            pointerEvents: isDragging ? 'auto' : 'none'
-          }}
-        >
-          {/* Floating cosmic news cards */}
+        {/* Floating cosmic news cards - Separate layer */}
+        <div className="absolute inset-0 z-10">
           {cards.map((card) => (
             <div
               key={card.id}
@@ -574,7 +588,7 @@ ${selectedCards.map(card => `
             isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/10' : 'border-white/20'
           }`}
         >
-          {/* Header - No Icon */}
+          {/* Header - Clean without icon */}
           <CardHeader className="border-b border-white/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -720,7 +734,7 @@ ${selectedCards.map(card => `
               </Button>
               <Button
                 onClick={sendMessage}
-                disabled={isTyping || !inputValue.trim()}
+                disabled={isTyping || (!inputValue.trim() && selectedCards.length === 0)}
                 size="sm"
                 className="w-10 h-10 bg-white text-black rounded-full hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
