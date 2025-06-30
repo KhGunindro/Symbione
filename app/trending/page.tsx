@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,10 +13,13 @@ import { EMOTIONS, EmotionType, getEmotionTheme } from '@/lib/emotions';
 import { ProcessedNewsArticle } from '@/lib/news-data';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { fetchTrendingNews } from '@/lib/store/slices/newsSlice';
+import { supabase } from '@/lib/supabase';
 import { TrendingUp, Clock, Globe, Filter, Search, ExternalLink, Edit as Reddit, Database, Zap } from 'lucide-react';
 
 export default function TrendingPage() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const { trendingArticles, isLoading } = useAppSelector(state => state.news);
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   
@@ -26,12 +30,39 @@ export default function TrendingPage() {
 
   const subreddits = ['worldnews', 'politics'];
 
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth check error:', error);
+          router.push('/login');
+          return;
+        }
+
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        setLoadingAuth(false);
+      } catch (error) {
+        console.error('Unexpected auth error:', error);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
   // Load trending articles on component mount
   useEffect(() => {
-    if (trendingArticles.length === 0) {
+    if (!loadingAuth && trendingArticles.length === 0) {
       dispatch(fetchTrendingNews(50));
     }
-  }, [dispatch, trendingArticles.length]);
+  }, [dispatch, trendingArticles.length, loadingAuth]);
 
   const applyFilters = () => {
     let filtered = trendingArticles;
@@ -70,8 +101,10 @@ export default function TrendingPage() {
 
   // Apply filters when filter values change
   useEffect(() => {
-    applyFilters();
-  }, [emotionFilter, subredditFilter, trendingArticles]);
+    if (!loadingAuth) {
+      applyFilters();
+    }
+  }, [emotionFilter, subredditFilter, trendingArticles, loadingAuth]);
 
   // Fixed formatTimeAgo function to handle string timestamps
   const formatTimeAgo = (timestamp: string) => {
@@ -91,6 +124,28 @@ export default function TrendingPage() {
     if (diffInDays < 7) return `${diffInDays}d ago`;
     return date.toLocaleDateString();
   };
+
+  // Show loading screen while checking auth
+  if (loadingAuth) {
+    return (
+      <PageLoader 
+        type="trending" 
+        emotion={dominantEmotion}
+        message="Verifying access permissions"
+        minLoadTime={1500}
+      >
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white/50 mx-auto mb-6"></div>
+            <div className="text-white text-xl font-semibold">Checking Authentication</div>
+            <div className="text-white/60 text-sm mt-3">
+              Verifying your access to trending news data...
+            </div>
+          </div>
+        </div>
+      </PageLoader>
+    );
+  }
 
   return (
     <PageLoader 

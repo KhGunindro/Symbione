@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAppSelector } from '@/lib/store/hooks';
 import { getEmotionTheme } from '@/lib/emotions';
+import { supabase } from '@/lib/supabase';
 import { 
   Send, 
   Mic, 
@@ -38,6 +40,8 @@ interface NewsCard {
 }
 
 export default function ChatPage() {
+  const router = useRouter();
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -56,6 +60,33 @@ export default function ChatPage() {
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   const emotionTheme = getEmotionTheme(dominantEmotion);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth check error:', error);
+          router.push('/login');
+          return;
+        }
+
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        setLoadingAuth(false);
+      } catch (error) {
+        console.error('Unexpected auth error:', error);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   // Sample cosmic news cards data
   const newsCardsData: NewsCard[] = [
@@ -449,6 +480,28 @@ ${selectedCards.map(card => `
     }, 4000);
   };
 
+  // Show loading screen while checking auth
+  if (loadingAuth) {
+    return (
+      <PageLoader 
+        type="chat" 
+        emotion={dominantEmotion} 
+        message="Verifying access permissions"
+        minLoadTime={1500}
+      >
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white/50 mx-auto mb-6"></div>
+            <div className="text-white text-xl font-semibold">Checking Authentication</div>
+            <div className="text-white/60 text-sm mt-3">
+              Verifying your access to the cosmic intelligence interface...
+            </div>
+          </div>
+        </div>
+      </PageLoader>
+    );
+  }
+
   return (
     <PageLoader 
       type="chat" 
@@ -457,33 +510,6 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* Static Cosmic Background - NO DYNAMIC ELEMENTS */}
-        <div className="fixed inset-0 z-0">
-          {/* Simple static starfield */}
-          <div className="absolute inset-0">
-            {Array.from({ length: 200 }).map((_, i) => (
-              <div
-                key={i}
-                className="absolute bg-white rounded-full opacity-60"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  width: `${Math.random() * 2 + 1}px`,
-                  height: `${Math.random() * 2 + 1}px`,
-                }}
-              />
-            ))}
-          </div>
-          
-          {/* Static gradient overlay */}
-          <div 
-            className="absolute inset-0 opacity-20"
-            style={{
-              background: `radial-gradient(ellipse at center, ${emotionTheme.color}20 0%, transparent 70%)`
-            }}
-          />
-        </div>
-
         <Navigation />
 
         {/* Floating cosmic news cards */}

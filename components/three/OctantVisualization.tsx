@@ -24,6 +24,18 @@ interface OctantVisualizationProps {
   viewType?: 'today' | 'yearly';
 }
 
+// Define strict octant boundaries for each emotion
+const OCTANT_BOUNDARIES = {
+  joy: { x: [0.5, 4.5], y: [0.5, 4.5], z: [0.5, 4.5] },        // Positive X, Y, Z
+  trust: { x: [-4.5, -0.5], y: [0.5, 4.5], z: [0.5, 4.5] },    // Negative X, Positive Y, Z
+  fear: { x: [0.5, 4.5], y: [-4.5, -0.5], z: [0.5, 4.5] },     // Positive X, Negative Y, Positive Z
+  surprise: { x: [-4.5, -0.5], y: [-4.5, -0.5], z: [0.5, 4.5] }, // Negative X, Y, Positive Z
+  sadness: { x: [0.5, 4.5], y: [0.5, 4.5], z: [-4.5, -0.5] },   // Positive X, Y, Negative Z
+  disgust: { x: [-4.5, -0.5], y: [0.5, 4.5], z: [-4.5, -0.5] }, // Negative X, Positive Y, Negative Z
+  anger: { x: [0.5, 4.5], y: [-4.5, -0.5], z: [-4.5, -0.5] },   // Positive X, Negative Y, Negative Z
+  anticipation: { x: [-4.5, -0.5], y: [-4.5, -0.5], z: [-4.5, -0.5] } // Negative X, Y, Z
+};
+
 export default function OctantVisualization({ onParticleClick, viewType = 'today' }: OctantVisualizationProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene>();
@@ -83,7 +95,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Create coordinate system axes with dotted particles (like the HTML example)
+    // Create coordinate system axes with dotted particles
     const axisLength = 10;
     const axisParticleSize = 0.03;
     const axisParticleSpacing = 0.2;
@@ -111,7 +123,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
       scene.add(particle);
     }
 
-    // Create grid lines (like the HTML example)
+    // Create grid lines
     const gridSize = 20;
     const gridDivisions = 20;
     
@@ -137,7 +149,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
     directionalLight.position.set(10, 10, 10);
     scene.add(directionalLight);
 
-    // Mouse controls (same as HTML example)
+    // Mouse controls
     let mouseX = 0, mouseY = 0;
     let isMouseDown = false;
     let cameraRadius = Math.sqrt(camera.position.x ** 2 + camera.position.y ** 2 + camera.position.z ** 2);
@@ -211,7 +223,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
       }
     };
 
-    // Zoom control (same as HTML example)
+    // Zoom control
     const handleWheel = (event: WheelEvent) => {
       event.preventDefault();
       cameraRadius += event.deltaY * 0.01;
@@ -255,18 +267,11 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
     renderer.domElement.addEventListener('wheel', handleWheel);
     renderer.domElement.addEventListener('click', handleClick);
 
-    // Animation loop
+    // Animation loop - REMOVED floating animation
     const animate = () => {
       requestAnimationFrame(animate);
       
-      // Subtle floating animation for particles
-      const time = Date.now() * 0.001;
-      particlesRef.current.forEach((particle, index) => {
-        if (particle.mesh) {
-          const floatY = Math.sin(time + index * 0.1) * 0.02;
-          particle.mesh.position.y = particle.position.y + floatY;
-        }
-      });
+      // Particles are now completely static - no floating animation
       
       renderer.render(scene, camera);
     };
@@ -301,7 +306,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
     };
   }, [onParticleClick]);
 
-  // Create stationary particles near origin when articles change
+  // Create particles in strict octant boundaries when articles change
   useEffect(() => {
     if (!sceneRef.current || !currentArticles || currentArticles.length === 0 || !sceneInitialized) return;
 
@@ -319,12 +324,13 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
     });
     particlesRef.current = [];
 
-    // Create stationary particles positioned NEAR ORIGIN (0,0,0) with emotion colors
+    // Create particles positioned strictly within emotion octants
     const newsParticles: NewsParticle[] = [];
     const particleGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     
     currentArticles.forEach((article, index) => {
       const emotionConfig = EMOTIONS[article.emotion];
+      const boundaries = OCTANT_BOUNDARIES[article.emotion];
       
       // Create emotion-colored material
       const emotionMaterial = new THREE.MeshBasicMaterial({ 
@@ -333,24 +339,12 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
       
       const mesh = new THREE.Mesh(particleGeometry, emotionMaterial);
       
-      // Position particles VERY CLOSE to origin with small random distribution
-      const maxDistance = 5; // Keep within 5 units of origin
-      const angle1 = Math.random() * Math.PI * 2;
-      const angle2 = Math.random() * Math.PI;
-      const radius = Math.random() * maxDistance;
-      
+      // Position particles STRICTLY within the emotion's octant boundaries
       const position = new THREE.Vector3(
-        radius * Math.sin(angle2) * Math.cos(angle1),
-        radius * Math.sin(angle2) * Math.sin(angle1),
-        radius * Math.cos(angle2)
+        boundaries.x[0] + Math.random() * (boundaries.x[1] - boundaries.x[0]),
+        boundaries.y[0] + Math.random() * (boundaries.y[1] - boundaries.y[0]),
+        boundaries.z[0] + Math.random() * (boundaries.z[1] - boundaries.z[0])
       );
-      
-      // Add slight emotion-based bias while staying near origin
-      const emotionBias = getEmotionBias(article.emotion);
-      position.add(emotionBias.multiplyScalar(0.5)); // Small bias
-      
-      // Ensure particles stay close to origin
-      position.clampLength(0, 5);
       
       mesh.position.copy(position);
       
@@ -371,7 +365,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
     });
     
     particlesRef.current = newsParticles;
-    console.log(`Created ${newsParticles.length} stationary particles near origin (0,0,0) for ${viewType} view`);
+    console.log(`Created ${newsParticles.length} particles in strict octant boundaries for ${viewType} view`);
   }, [currentArticles, sceneInitialized, viewType]);
 
   // Calculate emotion statistics for display
@@ -396,7 +390,7 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
             <div className="text-white/60 text-sm mt-3">
               {viewType === 'yearly' 
                 ? 'Loading top 8 highest intensity articles...' 
-                : 'Organizing articles near origin...'
+                : 'Organizing articles in strict octant boundaries...'
               }
             </div>
           </div>
@@ -404,20 +398,4 @@ export default function OctantVisualization({ onParticleClick, viewType = 'today
       )}
     </div>
   );
-}
-
-// Helper function to get slight emotion-based positioning bias
-function getEmotionBias(emotion: EmotionType): THREE.Vector3 {
-  const biases: Record<EmotionType, THREE.Vector3> = {
-    joy: new THREE.Vector3(0.2, 0.3, 0.1),
-    sadness: new THREE.Vector3(-0.2, -0.3, -0.1),
-    anger: new THREE.Vector3(0.3, -0.2, 0.2),
-    fear: new THREE.Vector3(-0.3, 0.1, -0.2),
-    surprise: new THREE.Vector3(0.1, 0.2, -0.3),
-    disgust: new THREE.Vector3(-0.1, -0.2, 0.3),
-    trust: new THREE.Vector3(0.2, -0.1, -0.2),
-    anticipation: new THREE.Vector3(-0.2, 0.3, 0.2)
-  };
-  
-  return biases[emotion] || new THREE.Vector3(0, 0, 0);
 }
