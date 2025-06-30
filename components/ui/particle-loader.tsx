@@ -154,10 +154,10 @@ const ParticleLoader: React.FC<ParticleLoaderProps> = ({
           particle.position.copy(userData.targetPosition.clone().add(floatOffset));
         }
         
-        // Enhanced particle glow effect
+        // Enhanced particle glow effect - Fixed TypeScript error
         const staggeredTime = globalTime + (index * 0.02);
         const glowIntensity = 0.4 + Math.sin(staggeredTime * 2.5 + index * 0.1) * 0.15;
-        particle.material.emissiveIntensity = glowIntensity;
+        (particle.material as THREE.MeshPhongMaterial).emissiveIntensity = glowIntensity;
         
         // Scale particles based on original scale and glow
         const dynamicScale = userData.originalScale * (1 + glowIntensity * 0.3);
