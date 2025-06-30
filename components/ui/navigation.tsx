@@ -1,265 +1,301 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useAppSelector } from '@/lib/store/hooks';
-import { getEmotionTheme } from '@/lib/emotions';
-import { supabase } from '@/lib/supabase';
 import { 
+  Menu, 
+  X, 
+  Sparkles, 
   Home, 
-  Orbit, 
+  Brain, 
   TrendingUp, 
   MessageCircle, 
   Clock, 
-  User, 
-  LogOut, 
-  Menu, 
-  X,
-  Brain
+  LogIn, 
+  UserPlus,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
+const navigationItems = [
+  { href: '/', label: 'Home', icon: Home },
+  { href: '/octants', label: 'Octants', icon: Brain },
+  { href: '/trending', label: 'Trending', icon: TrendingUp },
+  { href: '/chat', label: 'Chat', icon: MessageCircle },
+  { href: '/timeline', label: 'Timeline', icon: Clock },
+];
+
+const authItems = [
+  { href: '/login', label: 'Login', icon: LogIn },
+  { href: '/signup', label: 'Sign Up', icon: UserPlus },
+];
+
 export default function Navigation() {
-  const pathname = usePathname();
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  
-  // Get current emotion from Redux store
-  const { dominantEmotion } = useAppSelector(state => state.emotion);
-  const emotionTheme = getEmotionTheme(dominantEmotion);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundLoaded, setSoundLoaded] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pathname = usePathname();
 
-  // Check authentication status
+  const isActive = (href: string) => pathname === href;
+
+  // Load button click sound
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-
-    checkUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
+    const audio = new Audio('/sounds/buttonclick.mp3');
+    audio.preload = 'auto';
+    audio.volume = 0.5; // Adjust volume as needed
+    
+    // Handle loading
+    audio.addEventListener('canplaythrough', () => {
+      setSoundLoaded(true);
     });
-
-    return () => subscription.unsubscribe();
+    
+    audio.addEventListener('error', () => {
+      console.warn('Could not load button click sound');
+      setSoundLoaded(false);
+    });
+    
+    audioRef.current = audio;
   }, []);
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+  // Play button click sound
+  const playButtonSound = () => {
+    if (!soundEnabled || !soundLoaded || !audioRef.current) return;
+    
+    try {
+      (audioRef.current as HTMLAudioElement).currentTime = 0; // Reset to beginning
+      (audioRef.current as HTMLAudioElement).play().catch((error: unknown) => {
+        console.warn('Error playing button sound:', error);
+      });
+    } catch (error: unknown) {
+      console.warn('Error playing button sound:', error);
+    }
   };
 
-  const navItems = [
-    { href: '/', label: 'Home', icon: Home },
-    { href: '/octants', label: 'Octants', icon: Orbit },
-    { href: '/trending', label: 'Trending', icon: TrendingUp },
-    { href: '/rag-chat', label: 'AI Assistant', icon: Brain },
-    { href: '/chat', label: 'Chat', icon: MessageCircle },
-    { href: '/timeline', label: 'Timeline', icon: Clock },
-  ];
+  const handleMenuToggle = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const handleNavClick = () => {
+    setIsOpen(false);
+  };
+
+  const handleSoundToggle = () => {
+    setSoundEnabled(!soundEnabled);
+  };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-white/10 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="relative">
-              <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110"
-                style={{ 
-                  backgroundColor: emotionTheme.color,
-                  boxShadow: `0 0 20px ${emotionTheme.color}40`
+    <nav className="fixed top-0 left-0 right-0 z-50 px-4 py-3">
+      <div className="max-w-7xl mx-auto">
+        {/* Main Navigation Container */}
+        <div className="relative backdrop-blur-2xl bg-black/60 border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.3)] animate-float">
+          {/* Gradient Border Effect */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/20 via-transparent to-white/20 opacity-50 blur-sm"></div>
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+          
+          <div className="relative px-6 py-4">
+            <div className="flex items-center justify-between">
+              {/* Logo */}
+              <Link 
+                href="/" 
+                className="flex items-center space-x-3 group"
+              >
+                <div className="relative">
+                  <Sparkles className="h-8 w-8 text-white group-hover:text-white/80 transition-all duration-300 group-hover:scale-110 animate-pulse" />
+                  <div className="absolute inset-0 bg-white/20 rounded-full blur-lg group-hover:bg-white/30 transition-all duration-300"></div>
+                </div>
+                <span className="text-xl font-bold text-white text-glow group-hover:scale-105 transition-transform duration-300">
+                  Symbione
+                </span>
+              </Link>
+
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center space-x-2">
+                {/* Main Navigation Items */}
+                <div className="flex items-center space-x-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                  {navigationItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Button
+                        key={item.href}
+                        variant={isActive(item.href) ? "premium" : "ghost"}
+                        size="sm"
+                        asChild
+                        className={`
+                          relative h-9 px-4 text-sm font-medium transition-all duration-300
+                          ${isActive(item.href) 
+                            ? 'bg-white/20 text-white shadow-lg border-white/30' 
+                            : 'text-white/70 hover:text-white hover:bg-white/10'
+                          }
+                        `}
+                        onClick={playButtonSound}
+                      >
+                        <Link 
+                          href={item.href} 
+                          className="flex items-center space-x-2"
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                          {isActive(item.href) && (
+                            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-white/10 to-white/5 animate-shimmer"></div>
+                          )}
+                        </Link>
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                {/* Separator */}
+                <div className="w-px h-6 bg-white/20 mx-2"></div>
+
+                {/* Sound Toggle Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 p-0 text-white/70 hover:text-white hover:bg-white/10 border border-white/20"
+                  onClick={handleSoundToggle}
+                  title={soundEnabled ? 'Disable Sounds' : 'Enable Sounds'}
+                >
+                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </Button>
+
+                {/* Auth Buttons */}
+                <div className="flex items-center space-x-2">
+                  {authItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Button
+                        key={item.href}
+                        variant={item.href === '/signup' ? "premium" : "outline"}
+                        size="sm"
+                        asChild
+                        className={`
+                          h-9 px-4 text-sm font-medium transition-all duration-300
+                          ${item.href === '/signup' 
+                            ? 'bg-white/20 text-white border-white/30 hover:bg-white/30 shadow-lg' 
+                            : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
+                          }
+                        `}
+                        onClick={playButtonSound}
+                      >
+                        <Link 
+                          href={item.href} 
+                          className="flex items-center space-x-2"
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden h-10 w-10 p-0 text-white hover:bg-white/10 border border-white/20"
+                onClick={() => {
+                  playButtonSound();
+                  handleMenuToggle();
                 }}
               >
-                <div className="w-4 h-4 rounded-full bg-white/30 animate-pulse" />
-              </div>
+                {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </Button>
             </div>
-            <span className="text-xl font-bold text-white group-hover:text-glow transition-all duration-300">
-              Symbione
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              const Icon = item.icon;
-              
-              return (
-                <Link key={item.href} href={item.href}>
-                  <Button
-                    variant="ghost"
-                    className={`glass-button premium-hover transition-all duration-300 ${
-                      isActive 
-                        ? 'bg-white/20 text-white border-white/30' 
-                        : 'text-white/80 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 mr-2" />
-                    {item.label}
-                  </Button>
-                </Link>
-              );
-            })}
           </div>
-
-          {/* Current Emotion Badge & User Menu */}
-          <div className="hidden md:flex items-center space-x-4">
-            <Badge 
-              variant="outline" 
-              className="glass-button border-white/30 text-white px-3 py-1 animate-pulse-glow"
-              style={{ 
-                borderColor: emotionTheme.color + '60',
-                boxShadow: `0 0 20px ${emotionTheme.color}30`
-              }}
-            >
-              <div 
-                className="w-2 h-2 rounded-full mr-2"
-                style={{ backgroundColor: emotionTheme.color }}
-              />
-              {emotionTheme.name}
-            </Badge>
-
-            {user ? (
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="glass-button text-white/80 hover:text-white"
-                >
-                  <User className="h-4 w-4 mr-2" />
-                  {user.email?.split('@')[0] || 'User'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSignOut}
-                  className="glass-button text-white/80 hover:text-white"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Link href="/login">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="glass-button text-white/80 hover:text-white"
-                  >
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/signup">
-                  <Button
-                    size="sm"
-                    className="glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white"
-                  >
-                    Sign Up
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden glass-button text-white"
-            onClick={() => setIsOpen(!isOpen)}
-          >
-            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Navigation Panel */}
         {isOpen && (
-          <div className="md:hidden py-4 border-t border-white/10">
-            <div className="space-y-2">
-              {navItems.map((item) => {
-                const isActive = pathname === item.href;
-                const Icon = item.icon;
-                
-                return (
-                  <Link key={item.href} href={item.href} onClick={() => setIsOpen(false)}>
+          <div className="md:hidden mt-2 backdrop-blur-2xl bg-black/80 border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] animate-breathe">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/10 to-transparent opacity-50"></div>
+            <div className="relative p-4 space-y-2">
+              {/* Mobile Navigation Items */}
+              <div className="space-y-1">
+                {navigationItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
                     <Button
-                      variant="ghost"
-                      className={`w-full justify-start glass-button transition-all duration-300 ${
-                        isActive 
-                          ? 'bg-white/20 text-white border-white/30' 
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
-                      }`}
+                      key={item.href}
+                      variant={isActive(item.href) ? "premium" : "ghost"}
+                      size="sm"
+                      asChild
+                      className={`
+                        w-full justify-start h-11 px-4 text-sm font-medium transition-all duration-300
+                        ${isActive(item.href) 
+                          ? 'bg-white/20 text-white shadow-lg border-white/30' 
+                          : 'text-white/70 hover:text-white hover:bg-white/10'
+                        }
+                      `}
+                      onClick={() => {
+                        playButtonSound();
+                        handleNavClick();
+                      }}
                     >
-                      <Icon className="h-4 w-4 mr-2" />
-                      {item.label}
+                      <Link 
+                        href={item.href} 
+                        className="flex items-center space-x-3 w-full"
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
                     </Button>
-                  </Link>
-                );
-              })}
-              
-              {/* Mobile Emotion Badge */}
-              <div className="pt-2 border-t border-white/10">
-                <Badge 
-                  variant="outline" 
-                  className="glass-button border-white/30 text-white px-3 py-1 animate-pulse-glow"
-                  style={{ 
-                    borderColor: emotionTheme.color + '60',
-                    boxShadow: `0 0 20px ${emotionTheme.color}30`
-                  }}
-                >
-                  <div 
-                    className="w-2 h-2 rounded-full mr-2"
-                    style={{ backgroundColor: emotionTheme.color }}
-                  />
-                  Current: {emotionTheme.name}
-                </Badge>
+                  );
+                })}
               </div>
 
-              {/* Mobile User Menu */}
-              <div className="pt-2 border-t border-white/10">
-                {user ? (
-                  <div className="space-y-2">
+              {/* Mobile Separator */}
+              <div className="h-px bg-white/20 my-3"></div>
+
+              {/* Mobile Sound Toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start h-11 px-4 text-sm font-medium text-white/70 hover:text-white hover:bg-white/10"
+                onClick={handleSoundToggle}
+              >
+                <div className="flex items-center space-x-3 w-full">
+                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  <span>{soundEnabled ? 'Sound On' : 'Sound Off'}</span>
+                </div>
+              </Button>
+
+              {/* Mobile Auth Buttons */}
+              <div className="space-y-2">
+                {authItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
                     <Button
-                      variant="ghost"
-                      className="w-full justify-start glass-button text-white/80"
+                      key={item.href}
+                      variant={item.href === '/signup' ? "premium" : "outline"}
+                      size="sm"
+                      asChild
+                      className={`
+                        w-full justify-start h-11 px-4 text-sm font-medium transition-all duration-300
+                        ${item.href === '/signup' 
+                          ? 'bg-white/20 text-white border-white/30 hover:bg-white/30 shadow-lg' 
+                          : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
+                        }
+                      `}
+                      onClick={() => {
+                        playButtonSound();
+                        handleNavClick();
+                      }}
                     >
-                      <User className="h-4 w-4 mr-2" />
-                      {user.email?.split('@')[0] || 'User'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={handleSignOut}
-                      className="w-full justify-start glass-button text-white/80"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Link href="/login" onClick={() => setIsOpen(false)}>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start glass-button text-white/80"
+                      <Link 
+                        href={item.href} 
+                        className="flex items-center space-x-3 w-full"
                       >
-                        Sign In
-                      </Button>
-                    </Link>
-                    <Link href="/signup" onClick={() => setIsOpen(false)}>
-                      <Button
-                        className="w-full justify-start glass-button bg-white/15 border-white/30 hover:bg-white/25 text-white"
-                      >
-                        Sign Up
-                      </Button>
-                    </Link>
-                  </div>
-                )}
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </Button>
+                  );
+                })}
               </div>
             </div>
           </div>
