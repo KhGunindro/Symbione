@@ -432,7 +432,6 @@ export default function TimelinePage() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm text-gray-400">
                             <span>30 days ago</span>
-                            <span className="text-green-400 font-semibold">Today</span>
                             <span>30 days ahead</span>
                           </div>
                           <Slider
