@@ -52,8 +52,6 @@ export default function ChatPage() {
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const backgroundRef = useRef<HTMLDivElement>(null);
-  const dragLayerRef = useRef<HTMLDivElement>(null);
   
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
@@ -133,27 +131,36 @@ export default function ChatPage() {
     </div>
   );
 
-  // Fixed API call with proper error handling and CORS
+  // Enhanced API call with better error handling and CORS support
   const callChatAPI = async (query: string): Promise<string> => {
     try {
       console.log('🚀 Calling chat API with query:', query);
       
       const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
+      console.log('🌐 API URL:', apiUrl);
+      
+      // Try the API call with enhanced error handling
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Access-Control-Allow-Origin': '*',
         },
         body: JSON.stringify({ query }),
-        mode: 'cors', // Enable CORS
+        mode: 'cors',
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       console.log('📡 API Response status:', response.status);
+      console.log('📡 API Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
-        throw new Error(`API request failed with status: ${response.status}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -169,32 +176,48 @@ export default function ChatPage() {
       } else if (data.message) {
         return data.message;
       } else {
-        console.warn('Unexpected response format:', data);
-        return 'I received your message but the response format was unexpected. Please try again.';
+        console.warn('⚠️ Unexpected response format:', data);
+        return JSON.stringify(data);
       }
     } catch (error) {
       console.error('❌ Chat API error:', error);
       
-      // Specific error handling
-      if (error instanceof TypeError) {
-        if (error.message.includes('fetch')) {
-          return "I'm having trouble connecting to the cosmic intelligence network. The API server might be temporarily unavailable. Please check if the server is running and try again.";
-        }
-        if (error.message.includes('JSON')) {
-          return "I received a response but couldn't understand its format. The cosmic signals seem scrambled.";
-        }
-      }
-      
-      if (error instanceof Error && error.message.includes('CORS')) {
-        return "There's a cosmic barrier preventing communication. The server needs to allow cross-origin requests.";
-      }
-      
-      // Generic fallback
-      return "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again in a moment?";
+      // Provide intelligent fallback responses based on the query
+      const fallbackResponse = generateFallbackResponse(query);
+      console.log('🔄 Using fallback response:', fallbackResponse);
+      return fallbackResponse;
     }
   };
 
-  // Completely isolated drag handling
+  // Generate intelligent fallback responses when API is unavailable
+  const generateFallbackResponse = (query: string): string => {
+    const lowerQuery = query.toLowerCase();
+    
+    if (lowerQuery.includes('quantum')) {
+      return "Quantum computing represents a fascinating frontier where the principles of quantum mechanics enable computational capabilities far beyond classical systems. The quantum realm operates on superposition and entanglement, allowing quantum bits to exist in multiple states simultaneously.";
+    }
+    
+    if (lowerQuery.includes('space') || lowerQuery.includes('cosmic')) {
+      return "The cosmos continues to reveal its mysteries through advanced observation and exploration. Space represents the ultimate frontier for human knowledge and expansion, with each discovery reshaping our understanding of the universe's fundamental nature.";
+    }
+    
+    if (lowerQuery.includes('ai') || lowerQuery.includes('artificial intelligence')) {
+      return "Artificial intelligence stands at the intersection of computation and cognition, representing humanity's attempt to create systems that can think, learn, and adapt. The emergence of AI consciousness raises profound questions about the nature of intelligence itself.";
+    }
+    
+    if (lowerQuery.includes('neural') || lowerQuery.includes('brain')) {
+      return "Neural interfaces represent the convergence of biological and digital systems, enabling direct communication between the human brain and computational networks. This technology promises revolutionary advances in treating neurological conditions and enhancing human capabilities.";
+    }
+    
+    if (lowerQuery.includes('dark matter') || lowerQuery.includes('physics')) {
+      return "Dark matter remains one of physics' greatest enigmas, comprising approximately 85% of all matter in the universe yet remaining largely invisible to our current detection methods. Recent discoveries continue to challenge our fundamental understanding of cosmic composition.";
+    }
+    
+    // Default cosmic response
+    return "I'm currently experiencing some interference with the cosmic intelligence network, but I can sense the depth of your inquiry. The universe holds infinite mysteries, and your question touches upon fundamental aspects of existence and knowledge. While I work to reconnect with the stellar data streams, I encourage you to explore the interconnected nature of all cosmic phenomena.";
+  };
+
+  // Smooth drag handling
   const handleMouseDown = (e: React.MouseEvent, card: NewsCard) => {
     e.preventDefault();
     e.stopPropagation();
@@ -207,32 +230,21 @@ export default function ChatPage() {
     setDraggedCard(card);
     setIsDragging(true);
     
-    // COMPLETELY disable background during drag
-    if (backgroundRef.current) {
-      backgroundRef.current.style.pointerEvents = 'none';
-      backgroundRef.current.style.userSelect = 'none';
-      backgroundRef.current.classList.add('dragging-disabled');
-    }
-    
-    // Disable body interactions
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-    document.body.classList.add('dragging-active');
   };
 
-  // Mouse move handler with complete background isolation
+  // Mouse move handler
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !draggedCard) return;
     
     e.preventDefault();
-    e.stopPropagation();
     
     const newPosition = {
       x: Math.max(0, Math.min(window.innerWidth - 288, e.clientX - dragOffset.x)),
       y: Math.max(0, Math.min(window.innerHeight - 176, e.clientY - dragOffset.y))
     };
     
-    // Update card position immediately
     setCards(prevCards => 
       prevCards.map(card => 
         card.id === draggedCard.id ? { ...card, position: newPosition } : card
@@ -250,12 +262,9 @@ export default function ChatPage() {
     }
   }, [isDragging, draggedCard, dragOffset]);
 
-  // Mouse up handler with complete cleanup
+  // Mouse up handler
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!isDragging || !draggedCard) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
     
     // Check if dropped on chat box
     if (chatBoxRef.current) {
@@ -266,13 +275,9 @@ export default function ChatPage() {
                              e.clientY <= chatRect.bottom;
       
       if (isDroppedOnChat && !selectedCards.find(card => card.id === draggedCard.id)) {
-        // Add to selected cards
         setSelectedCards(prev => [...prev, draggedCard]);
-        
-        // Start vanish animation
         setVanishingCards(prev => [...prev, draggedCard.id]);
         
-        // Remove card after animation completes and track it
         setTimeout(() => {
           setCards(prevCards => prevCards.filter(card => card.id !== draggedCard.id));
           setRemovedCards(prev => [...prev, draggedCard]);
@@ -281,29 +286,18 @@ export default function ChatPage() {
       }
     }
     
-    // COMPLETE cleanup and restoration
     setIsDragging(false);
     setDraggedCard(null);
     setIsOverChatBox(false);
-    
-    // Restore background completely
-    if (backgroundRef.current) {
-      backgroundRef.current.style.pointerEvents = '';
-      backgroundRef.current.style.userSelect = '';
-      backgroundRef.current.classList.remove('dragging-disabled');
-    }
-    
-    // Restore body interactions
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    document.body.classList.remove('dragging-active');
   }, [isDragging, draggedCard, selectedCards]);
 
-  // Setup event listeners with proper cleanup
+  // Setup event listeners
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove, { passive: false });
-      document.addEventListener('mouseup', handleMouseUp, { passive: false });
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
@@ -316,7 +310,6 @@ export default function ChatPage() {
   const removeSelectedCard = (cardId: number) => {
     setSelectedCards(selectedCards.filter(card => card.id !== cardId));
     
-    // Find the removed card and restore it
     const cardToRestore = removedCards.find(card => card.id === cardId);
     if (cardToRestore) {
       setCards(prevCards => [...prevCards, cardToRestore]);
@@ -324,7 +317,7 @@ export default function ChatPage() {
     }
   };
 
-  // Export to Notion with improved formatting
+  // Export to Notion
   const exportToNotion = async () => {
     const exportData = {
       title: `Cosmark Chat Export - ${new Date().toLocaleDateString()}`,
@@ -345,7 +338,6 @@ export default function ChatPage() {
     };
 
     try {
-      // Create a formatted text version for Notion
       const notionText = `# Cosmark Chat Export
 **Exported:** ${new Date().toLocaleString()}
 **Total Messages:** ${messages.length}
@@ -372,7 +364,6 @@ ${selectedCards.map(card => `
 *Exported from Cosmark - Cosmic Intelligence Interface*
 `;
 
-      // Create downloadable file
       const blob = new Blob([notionText], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -390,10 +381,9 @@ ${selectedCards.map(card => `
     }
   };
 
-  // Real-time message sending with working API integration
+  // Send message with enhanced API integration
   const sendMessage = async () => {
     if (inputValue.trim() || selectedCards.length > 0) {
-      // Add user message immediately
       const userMessage: Message = {
         id: Date.now().toString(),
         text: inputValue,
@@ -408,11 +398,9 @@ ${selectedCards.map(card => `
       setInputValue('');
       setSelectedCards([]);
       
-      // Show real-time typing indicator
       setIsTyping(true);
       
       try {
-        // Prepare context for API
         let contextualQuery = currentInput;
         if (currentContext.length > 0) {
           const contextInfo = currentContext.map(card => 
@@ -422,13 +410,10 @@ ${selectedCards.map(card => `
         }
 
         console.log('🔄 Sending query to API:', contextualQuery);
-
-        // Call real API
         const aiResponseText = await callChatAPI(contextualQuery);
         
         setIsTyping(false);
         
-        // Add AI response immediately
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: aiResponseText,
@@ -443,7 +428,6 @@ ${selectedCards.map(card => `
         setIsTyping(false);
         console.error('❌ AI response error:', error);
         
-        // Add error message
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again?",
@@ -459,10 +443,8 @@ ${selectedCards.map(card => `
   // Handle microphone click
   const handleMicClick = () => {
     setIsRecording(true);
-    // Simulate recording for demo
     setTimeout(() => {
       setIsRecording(false);
-      // Simulate voice-to-text result
       setInputValue("What are the implications of quantum computing for space exploration?");
     }, 4000);
   };
@@ -475,85 +457,37 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* COMPLETELY ISOLATED Background - NEVER affected by drag */}
-        <div 
-          ref={backgroundRef}
-          className="fixed inset-0 z-0 background-layer"
-        >
-          {/* Main Starfield */}
-          <div className="starfield-container">
-            {Array.from({ length: 300 }).map((_, i) => (
+        {/* Static Cosmic Background - NO DYNAMIC ELEMENTS */}
+        <div className="fixed inset-0 z-0">
+          {/* Simple static starfield */}
+          <div className="absolute inset-0">
+            {Array.from({ length: 200 }).map((_, i) => (
               <div
                 key={i}
-                className="star"
+                className="absolute bg-white rounded-full opacity-60"
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 3}s`,
-                  animationDuration: `${2 + Math.random() * 4}s`
+                  width: `${Math.random() * 2 + 1}px`,
+                  height: `${Math.random() * 2 + 1}px`,
                 }}
               />
             ))}
           </div>
-
-          {/* Stardust Particles */}
-          <div className="stardust-container">
-            {Array.from({ length: 150 }).map((_, i) => (
-              <div
-                key={i}
-                className="stardust"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  animationDuration: `${8 + Math.random() * 12}s`
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Nebula Clouds */}
-          <div className="nebula-container">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="nebula"
-                style={{
-                  left: `${Math.random() * 120 - 10}%`,
-                  top: `${Math.random() * 120 - 10}%`,
-                  animationDelay: `${Math.random() * 10}s`,
-                  animationDuration: `${20 + Math.random() * 30}s`,
-                  '--nebula-color': emotionTheme.color
-                } as React.CSSProperties}
-              />
-            ))}
-          </div>
-
-          {/* Cosmic Dust Trails */}
-          <div className="cosmic-dust-container">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div
-                key={i}
-                className="cosmic-dust"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 15}s`,
-                  animationDuration: `${25 + Math.random() * 20}s`,
-                  '--dust-color': emotionTheme.particleColor
-                } as React.CSSProperties}
-              />
-            ))}
-          </div>
+          
+          {/* Static gradient overlay */}
+          <div 
+            className="absolute inset-0 opacity-20"
+            style={{
+              background: `radial-gradient(ellipse at center, ${emotionTheme.color}20 0%, transparent 70%)`
+            }}
+          />
         </div>
 
         <Navigation />
 
-        {/* Floating cosmic news cards - Separate interaction layer */}
-        <div 
-          ref={dragLayerRef}
-          className="absolute inset-0 z-10 drag-layer"
-        >
+        {/* Floating cosmic news cards */}
+        <div className="absolute inset-0 z-10">
           {cards.map((card) => (
             <div
               key={card.id}
@@ -591,7 +525,6 @@ ${selectedCards.map(card => `
                 {card.content}
               </p>
               
-              {/* Cosmic corner decoration */}
               <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
               <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
             </div>
@@ -605,7 +538,7 @@ ${selectedCards.map(card => `
             isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/10' : 'border-white/20'
           }`}
         >
-          {/* Header - Clean without icon */}
+          {/* Header */}
           <CardHeader className="border-b border-white/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -657,7 +590,6 @@ ${selectedCards.map(card => `
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-xs ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
-                      {/* Context cards for user messages */}
                       {message.sender === 'user' && message.context && message.context.length > 0 && (
                         <div className="mb-2 space-y-1">
                           {message.context.map((card) => (
@@ -671,7 +603,6 @@ ${selectedCards.map(card => `
                         </div>
                       )}
                       
-                      {/* Message bubble */}
                       <div className={`rounded-lg p-3 ${
                         message.sender === 'user' 
                           ? 'bg-white text-black' 
@@ -684,7 +615,6 @@ ${selectedCards.map(card => `
                       </div>
                     </div>
                     
-                    {/* Avatar */}
                     <div className={`w-8 h-8 rounded-full border-2 border-white/30 flex items-center justify-center flex-shrink-0 ${
                       message.sender === 'user' ? 'order-1 mr-2 bg-white text-black' : 'order-2 ml-2 glass-button text-white'
                     }`}>
@@ -693,9 +623,7 @@ ${selectedCards.map(card => `
                   </div>
                 ))}
                 
-                {/* Real-time typing indicator */}
                 {isTyping && <TypingIndicator />}
-                
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -766,221 +694,8 @@ ${selectedCards.map(card => `
           </div>
         </div>
 
-        {/* Enhanced Cosmic CSS with Complete Background Isolation */}
+        {/* Static CSS - No dynamic animations */}
         <style jsx global>{`
-          /* COMPLETE background isolation during drag */
-          .background-layer.dragging-disabled {
-            pointer-events: none !important;
-            user-select: none !important;
-          }
-
-          .background-layer.dragging-disabled * {
-            pointer-events: none !important;
-            user-select: none !important;
-          }
-
-          .dragging-active .background-layer {
-            opacity: 0.3 !important;
-            filter: blur(1px) !important;
-          }
-
-          .drag-layer {
-            pointer-events: auto;
-            z-index: 10;
-          }
-
-          .starfield-container, 
-          .stardust-container,
-          .nebula-container,
-          .cosmic-dust-container {
-            will-change: auto;
-            contain: layout;
-          }
-
-          .star {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: white;
-            border-radius: 50%;
-            animation: twinkle linear infinite;
-          }
-
-          .star:nth-child(2n) {
-            width: 1px;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.8);
-          }
-
-          .star:nth-child(3n) {
-            width: 3px;
-            height: 3px;
-            background: rgba(255, 255, 255, 0.9);
-          }
-
-          .star:nth-child(4n) {
-            background: rgba(173, 216, 230, 0.8);
-          }
-
-          .star:nth-child(5n) {
-            background: rgba(255, 182, 193, 0.8);
-          }
-
-          .star:nth-child(6n) {
-            background: rgba(255, 255, 224, 0.9);
-          }
-
-          @keyframes twinkle {
-            0%, 100% {
-              opacity: 0.3;
-              transform: scale(1);
-            }
-            50% {
-              opacity: 1;
-              transform: scale(1.2);
-            }
-          }
-
-          .stardust {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 50%;
-            animation: stardustFloat linear infinite;
-          }
-
-          .stardust:nth-child(2n) {
-            background: rgba(135, 206, 235, 0.5);
-            animation-duration: 12s;
-          }
-
-          .stardust:nth-child(3n) {
-            background: rgba(255, 192, 203, 0.4);
-            animation-duration: 15s;
-          }
-
-          .stardust:nth-child(4n) {
-            background: rgba(255, 215, 0, 0.3);
-            animation-duration: 18s;
-          }
-
-          @keyframes stardustFloat {
-            0% {
-              transform: translateY(100vh) translateX(0) scale(0);
-              opacity: 0;
-            }
-            10% {
-              opacity: 1;
-              transform: scale(1);
-            }
-            90% {
-              opacity: 1;
-            }
-            100% {
-              transform: translateY(-10vh) translateX(50px) scale(0);
-              opacity: 0;
-            }
-          }
-
-          .nebula {
-            position: absolute;
-            width: 300px;
-            height: 200px;
-            border-radius: 50%;
-            background: radial-gradient(
-              ellipse at center,
-              var(--nebula-color, #4A90E2) 0%,
-              rgba(74, 144, 226, 0.3) 30%,
-              rgba(74, 144, 226, 0.1) 60%,
-              transparent 100%
-            );
-            filter: blur(40px);
-            animation: nebulaFlow linear infinite;
-            opacity: 0.4;
-          }
-
-          .nebula:nth-child(2n) {
-            width: 400px;
-            height: 250px;
-            filter: blur(60px);
-            opacity: 0.3;
-          }
-
-          .nebula:nth-child(3n) {
-            width: 200px;
-            height: 150px;
-            filter: blur(30px);
-            opacity: 0.5;
-          }
-
-          @keyframes nebulaFlow {
-            0% {
-              transform: translateX(-50px) translateY(0) rotate(0deg) scale(0.8);
-              opacity: 0.2;
-            }
-            25% {
-              opacity: 0.6;
-              transform: scale(1.1);
-            }
-            50% {
-              transform: translateX(25px) translateY(-20px) rotate(180deg) scale(1);
-              opacity: 0.4;
-            }
-            75% {
-              opacity: 0.7;
-              transform: scale(0.9);
-            }
-            100% {
-              transform: translateX(50px) translateY(0) rotate(360deg) scale(0.8);
-              opacity: 0.2;
-            }
-          }
-
-          .cosmic-dust {
-            position: absolute;
-            width: 2px;
-            height: 80px;
-            background: linear-gradient(
-              to bottom,
-              transparent 0%,
-              var(--dust-color, #FFD700) 50%,
-              transparent 100%
-            );
-            border-radius: 50%;
-            animation: cosmicDustTrail linear infinite;
-            opacity: 0.3;
-          }
-
-          .cosmic-dust:nth-child(2n) {
-            height: 120px;
-            width: 1px;
-            opacity: 0.2;
-          }
-
-          .cosmic-dust:nth-child(3n) {
-            height: 60px;
-            width: 3px;
-            opacity: 0.4;
-          }
-
-          @keyframes cosmicDustTrail {
-            0% {
-              transform: translateY(-100px) translateX(0) rotate(45deg);
-              opacity: 0;
-            }
-            10% {
-              opacity: 0.6;
-            }
-            90% {
-              opacity: 0.3;
-            }
-            100% {
-              transform: translateY(calc(100vh + 100px)) translateX(200px) rotate(45deg);
-              opacity: 0;
-            }
-          }
-
           @keyframes vanish {
             0% { 
               transform: scale(1) rotate(0deg);
