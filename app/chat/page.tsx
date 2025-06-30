@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +53,8 @@ export default function ChatPage() {
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const backgroundRef = useRef<HTMLDivElement>(null);
+  const draggedElementRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingRef = useRef(false);
   
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
@@ -135,30 +137,20 @@ export default function ChatPage() {
   // Call the real API with proper error handling
   const callChatAPI = async (query: string): Promise<string> => {
     try {
-      console.log('Calling chat API with query:', query);
-      
       const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
       
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
-        mode: 'cors', // Enable CORS
       });
-
-      console.log('API Response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`API request failed with status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('API Response data:', data);
-      
-      return data.response || data.message || data.answer || 'I received your message but couldn\'t process it properly.';
+      return data.answer || data.response || 'I received your message but couldn\'t process it properly.';
     } catch (error) {
       console.error('Chat API error:', error);
       
@@ -172,7 +164,7 @@ export default function ChatPage() {
     }
   };
 
-  // Completely isolated drag handling - NO background interference
+  // Optimized drag handling with direct DOM manipulation
   const handleMouseDown = (e: React.MouseEvent, card: NewsCard) => {
     e.preventDefault();
     e.stopPropagation();
@@ -184,10 +176,19 @@ export default function ChatPage() {
     setDragOffset({ x: offsetX, y: offsetY });
     setDraggedCard(card);
     setIsDragging(true);
+    isDraggingRef.current = true;
     
-    // Completely isolate drag from background
-    document.body.style.cursor = 'grabbing';
-    document.body.style.userSelect = 'none';
+    // Store dragged element reference
+    draggedElementRef.current = e.currentTarget as HTMLDivElement;
+    
+    // Apply performance optimizations
+    if (draggedElementRef.current) {
+      draggedElementRef.current.style.willChange = 'transform';
+      draggedElementRef.current.style.pointerEvents = 'none';
+    }
+    
+    // Disable background animations during drag
+    document.body.classList.add('dragging-active');
     
     // Prevent any background events during drag
     if (backgroundRef.current) {
@@ -195,91 +196,115 @@ export default function ChatPage() {
     }
   };
 
-  // Enhanced mouse handling with complete background isolation
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging && draggedCard) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const newPosition = {
-          x: Math.max(0, Math.min(window.innerWidth - 288, e.clientX - dragOffset.x)),
-          y: Math.max(0, Math.min(window.innerHeight - 176, e.clientY - dragOffset.y))
-        };
-        
-        setCards(prevCards => 
-          prevCards.map(card => 
-            card.id === draggedCard.id ? { ...card, position: newPosition } : card
-          )
-        );
-
-        // Check if over chat box
-        if (chatBoxRef.current) {
-          const chatRect = chatBoxRef.current.getBoundingClientRect();
-          const isOver = e.clientX >= chatRect.left && 
-                        e.clientX <= chatRect.right && 
-                        e.clientY >= chatRect.top && 
-                        e.clientY <= chatRect.bottom;
-          setIsOverChatBox(isOver);
-        }
-      }
+  // Mouse move handler using useCallback for performance
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingRef.current || !draggedElementRef.current || !draggedCard) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const newPosition = {
+      x: Math.max(0, Math.min(window.innerWidth - 288, e.clientX - dragOffset.x)),
+      y: Math.max(0, Math.min(window.innerHeight - 176, e.clientY - dragOffset.y))
     };
+    
+    // Update directly via DOM manipulation
+    draggedElementRef.current.style.transform = `translate(${newPosition.x}px, ${newPosition.y}px)`;
+    
+    // Check if over chat box
+    if (chatBoxRef.current) {
+      const chatRect = chatBoxRef.current.getBoundingClientRect();
+      const isOver = e.clientX >= chatRect.left && 
+                    e.clientX <= chatRect.right && 
+                    e.clientY >= chatRect.top && 
+                    e.clientY <= chatRect.bottom;
+      setIsOverChatBox(isOver);
+    }
+  }, [dragOffset]);
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (isDragging && draggedCard) {
-        e.preventDefault();
-        e.stopPropagation();
+  // Mouse up handler using useCallback for performance
+  const handleMouseUp = useCallback((e: MouseEvent) => {
+    if (!isDraggingRef.current || !draggedCard) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Check if dropped on chat box
+    if (chatBoxRef.current) {
+      const chatRect = chatBoxRef.current.getBoundingClientRect();
+      const isDroppedOnChat = e.clientX >= chatRect.left && 
+                             e.clientX <= chatRect.right && 
+                             e.clientY >= chatRect.top && 
+                             e.clientY <= chatRect.bottom;
+      
+      if (isDroppedOnChat && !selectedCards.find(card => card.id === draggedCard.id)) {
+        // Add to selected cards
+        setSelectedCards(prev => [...prev, draggedCard]);
         
-        // Check if dropped on chat box
-        if (chatBoxRef.current) {
-          const chatRect = chatBoxRef.current.getBoundingClientRect();
-          const isDroppedOnChat = e.clientX >= chatRect.left && 
-                                 e.clientX <= chatRect.right && 
-                                 e.clientY >= chatRect.top && 
-                                 e.clientY <= chatRect.bottom;
+        // Start vanish animation
+        setVanishingCards(prev => [...prev, draggedCard.id]);
+        
+        // Remove card after animation completes and track it
+        setTimeout(() => {
+          setCards(prevCards => prevCards.filter(card => card.id !== draggedCard.id));
+          setRemovedCards(prev => [...prev, draggedCard]);
+          setVanishingCards(prev => prev.filter(id => id !== draggedCard.id));
+        }, 600);
+      } else {
+        // Update card position in state
+        if (draggedElementRef.current) {
+          const computedStyle = window.getComputedStyle(draggedElementRef.current);
+          const matrix = new DOMMatrixReadOnly(computedStyle.transform);
+          const newPosition = { x: matrix.m41, y: matrix.m42 };
           
-          if (isDroppedOnChat && !selectedCards.find(card => card.id === draggedCard.id)) {
-            // Add to selected cards
-            setSelectedCards(prev => [...prev, draggedCard]);
-            
-            // Start vanish animation
-            setVanishingCards(prev => [...prev, draggedCard.id]);
-            
-            // Remove card after animation completes and track it
-            setTimeout(() => {
-              setCards(prevCards => prevCards.filter(card => card.id !== draggedCard.id));
-              setRemovedCards(prev => [...prev, draggedCard]);
-              setVanishingCards(prev => prev.filter(id => id !== draggedCard.id));
-            }, 600);
-          }
+          setCards(prevCards => 
+            prevCards.map(card => 
+              card.id === draggedCard.id ? { ...card, position: newPosition } : card
+            )
+          );
         }
       }
-      
-      setIsDragging(false);
-      setDraggedCard(null);
-      setIsOverChatBox(false);
-      
-      // Restore normal interaction
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      
-      // Re-enable background interaction
-      if (backgroundRef.current) {
-        backgroundRef.current.style.pointerEvents = '';
-      }
-    };
+    }
+    
+    // Cleanup dragging state
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    setDraggedCard(null);
+    setIsOverChatBox(false);
+    
+    // Reset dragged element styles
+    if (draggedElementRef.current) {
+      draggedElementRef.current.style.willChange = '';
+      draggedElementRef.current.style.pointerEvents = '';
+      draggedElementRef.current.style.transform = '';
+      draggedElementRef.current = null;
+    }
+    
+    // Re-enable background animations
+    document.body.classList.remove('dragging-active');
+    
+    // Restore normal interaction
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    
+    // Re-enable background interaction
+    if (backgroundRef.current) {
+      backgroundRef.current.style.pointerEvents = '';
+    }
+  }, [draggedCard, dragOffset, selectedCards]);
 
+  // Setup event listeners
+  useEffect(() => {
     if (isDragging) {
-      // Use capture phase and prevent all other events
-      document.addEventListener('mousemove', handleMouseMove, { capture: true, passive: false });
-      document.addEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { passive: false });
       
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove, { capture: true });
-        document.removeEventListener('mouseup', handleMouseUp, { capture: true });
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, draggedCard, dragOffset, selectedCards]);
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Remove card from selection and restore it
   const removeSelectedCard = (cardId: number) => {
@@ -314,8 +339,6 @@ export default function ChatPage() {
     };
 
     try {
-      console.log('Exporting to Notion:', exportData);
-      
       // Create a formatted text version for Notion
       const notionText = `# Cosmark Chat Export
 **Exported:** ${new Date().toLocaleString()}
@@ -543,15 +566,10 @@ ${selectedCards.map(card => `
                     : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
               }`}
               style={{
-                left: card.position.x,
-                top: card.position.y,
-                transform: vanishingCards.includes(card.id)
-                  ? 'scale(0) rotate(180deg)'
-                  : isDragging && draggedCard?.id === card.id 
-                    ? 'scale(1.1) rotate(2deg)' 
-                    : card.id % 2 === 0 ? 'rotate(-0.5deg)' : 'rotate(0.5deg)',
+                transform: `translate(${card.position.x}px, ${card.position.y}px)`,
                 opacity: vanishingCards.includes(card.id) ? 0 : 1,
-                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
+                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto',
+                willChange: isDragging && draggedCard?.id === card.id ? 'transform' : 'auto'
               }}
             >
               <div className="flex items-start mb-3">
@@ -750,12 +768,21 @@ ${selectedCards.map(card => `
         </div>
 
         {/* Enhanced Cosmic CSS */}
-        <style jsx>{`
-          .starfield-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+        <style jsx global>{`
+          .dragging-active .star,
+          .dragging-active .stardust,
+          .dragging-active .nebula,
+          .dragging-active .cosmic-dust {
+            animation-play-state: paused !important;
+            opacity: 0.2 !important;
+          }
+
+          .starfield-container, 
+          .stardust-container,
+          .nebula-container,
+          .cosmic-dust-container {
+            will-change: contents;
+            contain: strict;
           }
 
           .star {
@@ -765,6 +792,7 @@ ${selectedCards.map(card => `
             background: white;
             border-radius: 50%;
             animation: twinkle linear infinite;
+            animation-duration: 5s !important;
           }
 
           .star:nth-child(2n) {
@@ -802,13 +830,6 @@ ${selectedCards.map(card => `
             }
           }
 
-          .stardust-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-
           .stardust {
             position: absolute;
             width: 1px;
@@ -816,6 +837,7 @@ ${selectedCards.map(card => `
             background: rgba(255, 255, 255, 0.6);
             border-radius: 50%;
             animation: stardustFloat linear infinite;
+            animation-duration: 15s !important;
           }
 
           .stardust:nth-child(2n) {
@@ -849,13 +871,6 @@ ${selectedCards.map(card => `
               transform: translateY(-10vh) translateX(50px) scale(0);
               opacity: 0;
             }
-          }
-
-          .nebula-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
           }
 
           .nebula {
@@ -910,13 +925,6 @@ ${selectedCards.map(card => `
               transform: translateX(50px) translateY(0) rotate(360deg) scale(0.8);
               opacity: 0.2;
             }
-          }
-
-          .cosmic-dust-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
           }
 
           .cosmic-dust {
