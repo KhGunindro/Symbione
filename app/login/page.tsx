@@ -288,14 +288,18 @@ export default function LoginPage() {
     setErrors({});
 
     try {
+      // Get the current domain dynamically
+      const currentDomain = window.location.origin;
+      console.log('Sending password reset email with redirect to:', `${currentDomain}/auth/reset-password`);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`
+        redirectTo: `${currentDomain}/auth/reset-password`
       });
 
       if (error) {
         setErrors({ submit: error.message });
       } else {
-        setForgotPasswordMessage('Password reset email sent! Please check your inbox.');
+        setForgotPasswordMessage(`Password reset email sent to ${formData.email}! Please check your inbox and click the link to reset your password.`);
       }
     } catch (error) {
       setErrors({ submit: 'Failed to send password reset email. Please try again.' });
@@ -471,6 +475,9 @@ export default function LoginPage() {
                     {forgotPasswordMessage && (
                       <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
                         <p className="text-green-600 text-sm font-medium">{forgotPasswordMessage}</p>
+                        <p className="text-green-500 text-xs mt-2">
+                          Make sure to check your spam folder if you don't see the email in your inbox.
+                        </p>
                       </div>
                     )}
 
