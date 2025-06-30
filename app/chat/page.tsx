@@ -15,7 +15,6 @@ import {
   Bot, 
   User, 
   Star, 
-  Sparkles, 
   FileText, 
   X, 
   Download,
@@ -314,8 +313,10 @@ export default function ChatPage() {
     setDraggedCard(card);
     setIsDragging(true);
     
+    // Prevent background interaction during drag
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
+    document.body.style.pointerEvents = 'none';
   };
 
   // Handle mouse move and mouse up
@@ -323,6 +324,7 @@ export default function ChatPage() {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging && draggedCard) {
         e.preventDefault();
+        e.stopPropagation();
         
         const newPosition = {
           x: Math.max(0, Math.min(window.innerWidth - 288, e.clientX - dragOffset.x)),
@@ -349,6 +351,9 @@ export default function ChatPage() {
 
     const handleMouseUp = (e: MouseEvent) => {
       if (isDragging && draggedCard) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         // Check if dropped on chat box
         if (chatBoxRef.current) {
           const chatRect = chatBoxRef.current.getBoundingClientRect();
@@ -377,17 +382,20 @@ export default function ChatPage() {
       setIsDragging(false);
       setDraggedCard(null);
       setIsOverChatBox(false);
+      
+      // Restore background interaction
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      document.body.style.pointerEvents = '';
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove, { capture: true });
+      document.addEventListener('mouseup', handleMouseUp, { capture: true });
       
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('mousemove', handleMouseMove, { capture: true });
+        document.removeEventListener('mouseup', handleMouseUp, { capture: true });
       };
     }
   }, [isDragging, draggedCard, dragOffset, selectedCards]);
@@ -407,7 +415,7 @@ export default function ChatPage() {
   // Export to Notion
   const exportToNotion = async () => {
     const exportData = {
-      title: `Symbione Chat Export - ${new Date().toLocaleDateString()}`,
+      title: `Cosmark Chat Export - ${new Date().toLocaleDateString()}`,
       messages: messages.map(msg => ({
         timestamp: msg.timestamp,
         sender: msg.sender,
@@ -421,14 +429,14 @@ export default function ChatPage() {
       totalMessages: messages.length,
       contextCards: selectedCards.length,
       exportedAt: new Date().toISOString(),
-      platform: 'Symbione - Emotionally Intelligent News Platform'
+      platform: 'Cosmark - Cosmic Intelligence Interface'
     };
 
     try {
       console.log('Exporting to Notion:', exportData);
       
       // Create a formatted text version for Notion
-      const notionText = `# Symbione Chat Export
+      const notionText = `# Cosmark Chat Export
 **Exported:** ${new Date().toLocaleString()}
 **Total Messages:** ${messages.length}
 **Context Cards Used:** ${selectedCards.length}
@@ -436,7 +444,7 @@ export default function ChatPage() {
 ## Conversation
 
 ${messages.map(msg => `
-**${msg.sender === 'user' ? 'You' : 'Symbione AI'}** (${msg.timestamp})
+**${msg.sender === 'user' ? 'You' : 'Cosmark AI'}** (${msg.timestamp})
 ${msg.text}
 
 ${msg.context && msg.context.length > 0 ? `*Context: ${msg.context.map(c => c.title).join(', ')}*` : ''}
@@ -451,7 +459,7 @@ ${selectedCards.map(card => `
 `).join('\n')}
 
 ---
-*Exported from Symbione - Emotionally Intelligent News Platform*
+*Exported from Cosmark - Cosmic Intelligence Interface*
 `;
 
       // Create downloadable file
@@ -459,7 +467,7 @@ ${selectedCards.map(card => `
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `symbione-chat-export-${Date.now()}.md`;
+      a.download = `cosmark-chat-export-${Date.now()}.md`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -470,7 +478,7 @@ ${selectedCards.map(card => `
       const jsonUrl = URL.createObjectURL(jsonBlob);
       const jsonA = document.createElement('a');
       jsonA.href = jsonUrl;
-      jsonA.download = `symbione-chat-export-${Date.now()}.json`;
+      jsonA.download = `cosmark-chat-export-${Date.now()}.json`;
       document.body.appendChild(jsonA);
       jsonA.click();
       document.body.removeChild(jsonA);
@@ -631,54 +639,56 @@ ${selectedCards.map(card => `
         <Navigation />
 
         {/* Floating cosmic news cards */}
-        {cards.map((card) => (
-          <div
-            key={card.id}
-            onMouseDown={(e) => handleMouseDown(e, card)}
-            className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
-              vanishingCards.includes(card.id)
-                ? 'animate-vanish cursor-default'
-                : isDragging && draggedCard?.id === card.id 
-                  ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
-                  : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
-            }`}
-            style={{
-              left: card.position.x,
-              top: card.position.y,
-              transform: vanishingCards.includes(card.id)
-                ? 'scale(0) rotate(180deg)'
-                : isDragging && draggedCard?.id === card.id 
-                  ? 'scale(1.1) rotate(2deg)' 
-                  : card.id % 2 === 0 ? 'rotate(-0.5deg)' : 'rotate(0.5deg)',
-              opacity: vanishingCards.includes(card.id) ? 0 : 1,
-              pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
-            }}
-          >
-            <div className="flex items-start mb-3">
-              <div className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                <Star className="w-4 h-4 text-white" />
+        <div className={`${isDragging ? 'pointer-events-none' : ''}`}>
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              onMouseDown={(e) => handleMouseDown(e, card)}
+              className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
+                vanishingCards.includes(card.id)
+                  ? 'animate-vanish cursor-default pointer-events-none'
+                  : isDragging && draggedCard?.id === card.id 
+                    ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40 pointer-events-auto' 
+                    : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover pointer-events-auto'
+              }`}
+              style={{
+                left: card.position.x,
+                top: card.position.y,
+                transform: vanishingCards.includes(card.id)
+                  ? 'scale(0) rotate(180deg)'
+                  : isDragging && draggedCard?.id === card.id 
+                    ? 'scale(1.1) rotate(2deg)' 
+                    : card.id % 2 === 0 ? 'rotate(-0.5deg)' : 'rotate(0.5deg)',
+                opacity: vanishingCards.includes(card.id) ? 0 : 1,
+                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
+              }}
+            >
+              <div className="flex items-start mb-3">
+                <div className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                  <Star className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs mb-2 glass-button border-white/30 text-white/80"
+                  >
+                    {card.category}
+                  </Badge>
+                  <h3 className="text-sm font-light text-white leading-tight text-glow">
+                    {card.title}
+                  </h3>
+                </div>
               </div>
-              <div className="flex-1">
-                <Badge 
-                  variant="outline" 
-                  className="text-xs mb-2 glass-button border-white/30 text-white/80"
-                >
-                  {card.category}
-                </Badge>
-                <h3 className="text-sm font-light text-white leading-tight text-glow">
-                  {card.title}
-                </h3>
-              </div>
+              <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
+                {card.content}
+              </p>
+              
+              {/* Cosmic corner decoration */}
+              <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
+              <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
             </div>
-            <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
-              {card.content}
-            </p>
-            
-            {/* Cosmic corner decoration */}
-            <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
-            <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
-          </div>
-        ))}
+          ))}
+        </div>
 
         {/* Main chat interface */}
         <div 
@@ -695,11 +705,11 @@ ${selectedCards.map(card => `
                   className="w-8 h-8 rounded-full flex items-center justify-center animate-pulse-glow"
                   style={{ backgroundColor: emotionTheme.color }}
                 >
-                  <Sparkles className="w-5 h-5 text-white" />
+                  <MessageCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <CardTitle className="text-xl font-light tracking-wider text-glow">
-                    SYMBIONE AI
+                    COSMARK
                   </CardTitle>
                   <p className="text-xs text-white/60 tracking-wide">
                     Cosmic Intelligence Interface
