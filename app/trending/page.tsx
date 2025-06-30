@@ -14,12 +14,13 @@ import { ProcessedNewsArticle } from '@/lib/news-data';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { fetchTrendingNews } from '@/lib/store/slices/newsSlice';
 import { supabase } from '@/lib/supabase';
-import { TrendingUp, Clock, Globe, Filter, Search, ExternalLink, Edit as Reddit, Database, Zap } from 'lucide-react';
+import { TrendingUp, Clock, Globe, Filter, Search, ExternalLink, Edit as Reddit, Database, Zap, Bookmark } from 'lucide-react';
 
 export default function TrendingPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const { trendingArticles, isLoading } = useAppSelector(state => state.news);
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   
@@ -27,6 +28,7 @@ export default function TrendingPage() {
   const [emotionFilter, setEmotionFilter] = useState<string>('all');
   const [subredditFilter, setSubredditFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [bookmarkingStates, setBookmarkingStates] = useState<Record<string, boolean>>({});
 
   const subreddits = ['worldnews', 'politics'];
 
@@ -47,6 +49,7 @@ export default function TrendingPage() {
           return;
         }
 
+        setUser(session.user);
         setLoadingAuth(false);
       } catch (error) {
         console.error('Unexpected auth error:', error);
@@ -105,6 +108,46 @@ export default function TrendingPage() {
       applyFilters();
     }
   }, [emotionFilter, subredditFilter, trendingArticles, loadingAuth]);
+
+  // Add bookmark function
+  const addBookmark = async (article: ProcessedNewsArticle) => {
+    if (!user) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    // Set loading state for this specific article
+    setBookmarkingStates(prev => ({ ...prev, [article.id]: true }));
+
+    try {
+      const bookmarkData = {
+        user_id: user.id,
+        news_id: article.id,
+        title: article.headline,
+        subreddit: article.subreddit,
+        emotion: article.emotion,
+        emotion_intensity: Math.round(article.intensity * 100), // Convert to integer percentage
+        source_url: article.url
+      };
+
+      const { data, error } = await supabase
+        .from('cosmark_bookmarks')
+        .insert([bookmarkData]);
+
+      if (error) {
+        console.error('Error adding bookmark:', error);
+        // You could add a toast notification here
+      } else {
+        console.log('Bookmark added successfully:', data);
+        // You could add a success toast notification here
+      }
+    } catch (error) {
+      console.error('Unexpected error adding bookmark:', error);
+    } finally {
+      // Remove loading state
+      setBookmarkingStates(prev => ({ ...prev, [article.id]: false }));
+    }
+  };
 
   // Fixed formatTimeAgo function to handle string timestamps
   const formatTimeAgo = (timestamp: string) => {
@@ -288,6 +331,8 @@ export default function TrendingPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {filteredArticles.map((article) => {
                   const emotionTheme = getEmotionTheme(article.emotion);
+                  const isBookmarking = bookmarkingStates[article.id] || false;
+                  
                   return (
                     <Card key={article.id} className="glass-card border-white/20 hover-glow premium-hover group">
                       <CardHeader>
@@ -338,17 +383,35 @@ export default function TrendingPage() {
                               <span className="text-sm text-gray-400 font-mono">{Math.round(article.intensity * 100)}%</span>
                             </div>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            asChild 
-                            className="glass-button group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-all duration-300"
-                          >
-                            <a href={article.url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Read Article
-                            </a>
-                          </Button>
+                          <div className="flex items-center space-x-2">
+                            {user && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => addBookmark(article)}
+                                disabled={isBookmarking}
+                                className="glass-button group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-500 transition-all duration-300"
+                              >
+                                {isBookmarking ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/50 mr-2" />
+                                ) : (
+                                  <Bookmark className="h-4 w-4 mr-2" />
+                                )}
+                                Add to Cosmark
+                              </Button>
+                            )}
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild 
+                              className="glass-button group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-all duration-300"
+                            >
+                              <a href={article.url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Read Article
+                              </a>
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
