@@ -349,7 +349,7 @@ export default function LoginPage() {
                 <div className="relative z-10">
                   {/* Main Heading with Dynamic Name */}
                   <h1 className="text-4xl lg:text-5xl font-normal text-black mb-8 text-center tracking-tight leading-tight font-serif">
-                    Welcome Back {userName}
+                    Welcome Back 
                   </h1>
 
                   {/* Sign In Section */}

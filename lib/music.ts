@@ -47,7 +47,7 @@ export const EMOTION_MUSIC: Record<EmotionType, MusicConfig> = {
   },
   anger: {
     emotion: 'anger',
-    filename: 'anger-harsh-strings.mp3', // Harsh strings/drums music
+    filename: '(ANGER)ES_Still in Blues - Daniella Ljungsberg.mp3', // Harsh strings/drums music
     volume: 0.15, // Reduced from 0.3
     loop: true
   },
