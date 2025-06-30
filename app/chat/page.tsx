@@ -53,8 +53,7 @@ export default function ChatPage() {
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const backgroundRef = useRef<HTMLDivElement>(null);
-  const draggedElementRef = useRef<HTMLDivElement | null>(null);
-  const isDraggingRef = useRef(false);
+  const dragLayerRef = useRef<HTMLDivElement>(null);
   
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
@@ -134,37 +133,68 @@ export default function ChatPage() {
     </div>
   );
 
-  // Call the real API with proper error handling
+  // Fixed API call with proper error handling and CORS
   const callChatAPI = async (query: string): Promise<string> => {
     try {
+      console.log('🚀 Calling chat API with query:', query);
+      
       const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
       
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: JSON.stringify({ query }),
+        mode: 'cors', // Enable CORS
       });
+
+      console.log('📡 API Response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`API request failed with status: ${response.status}`);
       }
 
       const data = await response.json();
-      return data.answer || data.response || 'I received your message but couldn\'t process it properly.';
-    } catch (error) {
-      console.error('Chat API error:', error);
+      console.log('📦 API Response data:', data);
       
-      // More specific error handling
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        return "I'm having trouble connecting to the cosmic intelligence network. The API might be temporarily unavailable. Please check your connection and try again.";
+      // Handle different response formats from your FastAPI
+      if (typeof data === 'string') {
+        return data;
+      } else if (data.answer) {
+        return data.answer;
+      } else if (data.response) {
+        return data.response;
+      } else if (data.message) {
+        return data.message;
+      } else {
+        console.warn('Unexpected response format:', data);
+        return 'I received your message but the response format was unexpected. Please try again.';
+      }
+    } catch (error) {
+      console.error('❌ Chat API error:', error);
+      
+      // Specific error handling
+      if (error instanceof TypeError) {
+        if (error.message.includes('fetch')) {
+          return "I'm having trouble connecting to the cosmic intelligence network. The API server might be temporarily unavailable. Please check if the server is running and try again.";
+        }
+        if (error.message.includes('JSON')) {
+          return "I received a response but couldn't understand its format. The cosmic signals seem scrambled.";
+        }
       }
       
-      // Fallback response
+      if (error instanceof Error && error.message.includes('CORS')) {
+        return "There's a cosmic barrier preventing communication. The server needs to allow cross-origin requests.";
+      }
+      
+      // Generic fallback
       return "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again in a moment?";
     }
   };
 
-  // Optimized drag handling with direct DOM manipulation
+  // Completely isolated drag handling
   const handleMouseDown = (e: React.MouseEvent, card: NewsCard) => {
     e.preventDefault();
     e.stopPropagation();
@@ -176,29 +206,23 @@ export default function ChatPage() {
     setDragOffset({ x: offsetX, y: offsetY });
     setDraggedCard(card);
     setIsDragging(true);
-    isDraggingRef.current = true;
     
-    // Store dragged element reference
-    draggedElementRef.current = e.currentTarget as HTMLDivElement;
-    
-    // Apply performance optimizations
-    if (draggedElementRef.current) {
-      draggedElementRef.current.style.willChange = 'transform';
-      draggedElementRef.current.style.pointerEvents = 'none';
-    }
-    
-    // Disable background animations during drag
-    document.body.classList.add('dragging-active');
-    
-    // Prevent any background events during drag
+    // COMPLETELY disable background during drag
     if (backgroundRef.current) {
       backgroundRef.current.style.pointerEvents = 'none';
+      backgroundRef.current.style.userSelect = 'none';
+      backgroundRef.current.classList.add('dragging-disabled');
     }
+    
+    // Disable body interactions
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('dragging-active');
   };
 
-  // Mouse move handler using useCallback for performance
+  // Mouse move handler with complete background isolation
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDraggingRef.current || !draggedElementRef.current || !draggedCard) return;
+    if (!isDragging || !draggedCard) return;
     
     e.preventDefault();
     e.stopPropagation();
@@ -208,9 +232,13 @@ export default function ChatPage() {
       y: Math.max(0, Math.min(window.innerHeight - 176, e.clientY - dragOffset.y))
     };
     
-    // Update directly via DOM manipulation
-    draggedElementRef.current.style.transform = `translate(${newPosition.x}px, ${newPosition.y}px)`;
-    
+    // Update card position immediately
+    setCards(prevCards => 
+      prevCards.map(card => 
+        card.id === draggedCard.id ? { ...card, position: newPosition } : card
+      )
+    );
+
     // Check if over chat box
     if (chatBoxRef.current) {
       const chatRect = chatBoxRef.current.getBoundingClientRect();
@@ -220,11 +248,11 @@ export default function ChatPage() {
                     e.clientY <= chatRect.bottom;
       setIsOverChatBox(isOver);
     }
-  }, [dragOffset]);
+  }, [isDragging, draggedCard, dragOffset]);
 
-  // Mouse up handler using useCallback for performance
+  // Mouse up handler with complete cleanup
   const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (!isDraggingRef.current || !draggedCard) return;
+    if (!isDragging || !draggedCard) return;
     
     e.preventDefault();
     e.stopPropagation();
@@ -250,50 +278,28 @@ export default function ChatPage() {
           setRemovedCards(prev => [...prev, draggedCard]);
           setVanishingCards(prev => prev.filter(id => id !== draggedCard.id));
         }, 600);
-      } else {
-        // Update card position in state
-        if (draggedElementRef.current) {
-          const computedStyle = window.getComputedStyle(draggedElementRef.current);
-          const matrix = new DOMMatrixReadOnly(computedStyle.transform);
-          const newPosition = { x: matrix.m41, y: matrix.m42 };
-          
-          setCards(prevCards => 
-            prevCards.map(card => 
-              card.id === draggedCard.id ? { ...card, position: newPosition } : card
-            )
-          );
-        }
       }
     }
     
-    // Cleanup dragging state
-    isDraggingRef.current = false;
+    // COMPLETE cleanup and restoration
     setIsDragging(false);
     setDraggedCard(null);
     setIsOverChatBox(false);
     
-    // Reset dragged element styles
-    if (draggedElementRef.current) {
-      draggedElementRef.current.style.willChange = '';
-      draggedElementRef.current.style.pointerEvents = '';
-      draggedElementRef.current.style.transform = '';
-      draggedElementRef.current = null;
-    }
-    
-    // Re-enable background animations
-    document.body.classList.remove('dragging-active');
-    
-    // Restore normal interaction
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    
-    // Re-enable background interaction
+    // Restore background completely
     if (backgroundRef.current) {
       backgroundRef.current.style.pointerEvents = '';
+      backgroundRef.current.style.userSelect = '';
+      backgroundRef.current.classList.remove('dragging-disabled');
     }
-  }, [draggedCard, dragOffset, selectedCards]);
+    
+    // Restore body interactions
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.body.classList.remove('dragging-active');
+  }, [isDragging, draggedCard, selectedCards]);
 
-  // Setup event listeners
+  // Setup event listeners with proper cleanup
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove, { passive: false });
@@ -377,19 +383,10 @@ ${selectedCards.map(card => `
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      // Also create JSON backup
-      const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      const jsonUrl = URL.createObjectURL(jsonBlob);
-      const jsonA = document.createElement('a');
-      jsonA.href = jsonUrl;
-      jsonA.download = `cosmark-chat-export-${Date.now()}.json`;
-      document.body.appendChild(jsonA);
-      jsonA.click();
-      document.body.removeChild(jsonA);
-      URL.revokeObjectURL(jsonUrl);
+      console.log('✅ Chat exported successfully');
       
     } catch (error) {
-      console.error('Export failed:', error);
+      console.error('❌ Export failed:', error);
     }
   };
 
@@ -401,7 +398,7 @@ ${selectedCards.map(card => `
         id: Date.now().toString(),
         text: inputValue,
         context: selectedCards,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         sender: 'user'
       };
       
@@ -424,6 +421,8 @@ ${selectedCards.map(card => `
           contextualQuery = `Context:\n${contextInfo}\n\nQuestion: ${currentInput}`;
         }
 
+        console.log('🔄 Sending query to API:', contextualQuery);
+
         // Call real API
         const aiResponseText = await callChatAPI(contextualQuery);
         
@@ -433,21 +432,22 @@ ${selectedCards.map(card => `
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: aiResponseText,
-          timestamp: new Date().toLocaleTimeString(),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           sender: 'ai'
         };
         
         setMessages(prev => [...prev, aiMessage]);
+        console.log('✅ AI response added successfully');
         
       } catch (error) {
         setIsTyping(false);
-        console.error('AI response error:', error);
+        console.error('❌ AI response error:', error);
         
         // Add error message
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again?",
-          timestamp: new Date().toLocaleTimeString(),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           sender: 'ai'
         };
         
@@ -475,13 +475,10 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* COMPLETELY ISOLATED Background - No interaction during drag */}
+        {/* COMPLETELY ISOLATED Background - NEVER affected by drag */}
         <div 
           ref={backgroundRef}
-          className="fixed inset-0 z-0"
-          style={{ 
-            pointerEvents: isDragging ? 'none' : 'auto'
-          }}
+          className="fixed inset-0 z-0 background-layer"
         >
           {/* Main Starfield */}
           <div className="starfield-container">
@@ -552,8 +549,11 @@ ${selectedCards.map(card => `
 
         <Navigation />
 
-        {/* Floating cosmic news cards - Separate layer */}
-        <div className="absolute inset-0 z-10">
+        {/* Floating cosmic news cards - Separate interaction layer */}
+        <div 
+          ref={dragLayerRef}
+          className="absolute inset-0 z-10 drag-layer"
+        >
           {cards.map((card) => (
             <div
               key={card.id}
@@ -568,8 +568,7 @@ ${selectedCards.map(card => `
               style={{
                 transform: `translate(${card.position.x}px, ${card.position.y}px)`,
                 opacity: vanishingCards.includes(card.id) ? 0 : 1,
-                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto',
-                willChange: isDragging && draggedCard?.id === card.id ? 'transform' : 'auto'
+                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
               }}
             >
               <div className="flex items-start mb-3">
@@ -767,22 +766,35 @@ ${selectedCards.map(card => `
           </div>
         </div>
 
-        {/* Enhanced Cosmic CSS */}
+        {/* Enhanced Cosmic CSS with Complete Background Isolation */}
         <style jsx global>{`
-          .dragging-active .star,
-          .dragging-active .stardust,
-          .dragging-active .nebula,
-          .dragging-active .cosmic-dust {
-            animation-play-state: paused !important;
-            opacity: 0.2 !important;
+          /* COMPLETE background isolation during drag */
+          .background-layer.dragging-disabled {
+            pointer-events: none !important;
+            user-select: none !important;
+          }
+
+          .background-layer.dragging-disabled * {
+            pointer-events: none !important;
+            user-select: none !important;
+          }
+
+          .dragging-active .background-layer {
+            opacity: 0.3 !important;
+            filter: blur(1px) !important;
+          }
+
+          .drag-layer {
+            pointer-events: auto;
+            z-index: 10;
           }
 
           .starfield-container, 
           .stardust-container,
           .nebula-container,
           .cosmic-dust-container {
-            will-change: contents;
-            contain: strict;
+            will-change: auto;
+            contain: layout;
           }
 
           .star {
@@ -792,7 +804,6 @@ ${selectedCards.map(card => `
             background: white;
             border-radius: 50%;
             animation: twinkle linear infinite;
-            animation-duration: 5s !important;
           }
 
           .star:nth-child(2n) {
@@ -837,7 +848,6 @@ ${selectedCards.map(card => `
             background: rgba(255, 255, 255, 0.6);
             border-radius: 50%;
             animation: stardustFloat linear infinite;
-            animation-duration: 15s !important;
           }
 
           .stardust:nth-child(2n) {
