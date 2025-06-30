@@ -370,10 +370,6 @@ export default function TimelinePage() {
                   <span>Live Updates</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-4 w-4 text-blue-400" />
-                  <span>Future Tracking</span>
-                </div>
-                <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
                   <span>61 Days Total</span>
                 </div>
