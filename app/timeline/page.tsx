@@ -20,29 +20,30 @@ interface TimelineData {
   emotionBreakdown: Record<EmotionType, number>;
   totalArticles: number;
   isFuture: boolean;
+  isHistorical: boolean;
 }
 
 export default function TimelinePage() {
   const dispatch = useAppDispatch();
   const [timelineData, setTimelineData] = useState<TimelineData[]>([]);
-  const [currentDay, setCurrentDay] = useState([0]); // Start at day 0 (today)
+  const [currentDay, setCurrentDay] = useState([30]); // Start at day 30 (today)
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [playInterval, setPlayInterval] = useState<NodeJS.Timeout | null>(null);
   const currentEmotion = getDominantEmotion();
 
-  // Generate timeline data for the next 30 days
+  // Generate timeline data for 30 days past + today + 30 days future (61 total days)
   useEffect(() => {
-    const generateFutureTimelineData = async () => {
+    const generateTimelineData = async () => {
       setIsLoading(true);
       try {
-        console.log('Generating future timeline data for next 30 days...');
+        console.log('Generating timeline data: 30 days past + today + 30 days future...');
         
         const timelineEntries: TimelineData[] = [];
         const today = new Date();
         
-        // Generate data for the next 30 days (starting from today)
-        for (let i = 0; i < 30; i++) {
+        // Generate data for 61 days total (-30 to +30 from today)
+        for (let i = -30; i <= 30; i++) {
           const date = new Date(today);
           date.setDate(date.getDate() + i);
           
@@ -54,20 +55,21 @@ export default function TimelinePage() {
           
           const isToday = i === 0;
           const isFuture = i > 0;
+          const isHistorical = i < 0;
           
           try {
             let filteredArticles: ProcessedNewsArticle[] = [];
             
-            // Only fetch articles for today, future days will have zero emotions
-            if (isToday) {
-              console.log('Fetching articles for today...');
+            // Fetch articles for historical days and today
+            if (!isFuture) {
+              console.log(`Fetching articles for ${isToday ? 'today' : 'historical day'}: ${date.toDateString()}`);
               const dayArticles = await fetchNewsArticles({
-                limit: 100,
+                limit: 200,
                 sortBy: 'timestamp',
                 sortOrder: 'desc'
               });
               
-              // Filter articles for today only
+              // Filter articles for this specific day
               filteredArticles = dayArticles.filter(article => {
                 const articleDate = new Date(article.timestamp);
                 return articleDate >= startOfDay && articleDate <= endOfDay;
@@ -89,7 +91,7 @@ export default function TimelinePage() {
               dominantEmotion = 'joy'; // Default neutral emotion
               intensity = 0;
             } else {
-              // Today: calculate from real articles
+              // Historical days and today: calculate from real articles
               emotionBreakdown = getEmotionDistribution(filteredArticles);
               
               // Find dominant emotion
@@ -112,7 +114,7 @@ export default function TimelinePage() {
               
               intensity = highestIntensity;
               
-              // If no articles for today, set all emotions to 0
+              // If no articles for this day, set all emotions to 0
               if (filteredArticles.length === 0) {
                 emotionBreakdown = {
                   joy: 0, trust: 0, fear: 0, surprise: 0,
@@ -130,7 +132,8 @@ export default function TimelinePage() {
               anchorStory,
               emotionBreakdown,
               totalArticles: filteredArticles.length,
-              isFuture
+              isFuture,
+              isHistorical
             });
             
           } catch (error) {
@@ -149,21 +152,22 @@ export default function TimelinePage() {
               anchorStory: null,
               emotionBreakdown: zeroBreakdown,
               totalArticles: 0,
-              isFuture
+              isFuture,
+              isHistorical
             });
           }
         }
         
-        console.log(`Generated future timeline data for ${timelineEntries.length} days`);
+        console.log(`Generated timeline data for ${timelineEntries.length} days (30 past + today + 30 future)`);
         setTimelineData(timelineEntries);
       } catch (error) {
-        console.error('Error generating future timeline data:', error);
+        console.error('Error generating timeline data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    generateFutureTimelineData();
+    generateTimelineData();
   }, []);
 
   const currentData = timelineData[currentDay[0]] || {
@@ -173,7 +177,8 @@ export default function TimelinePage() {
     anchorStory: null,
     emotionBreakdown: { joy: 0, trust: 0, fear: 0, surprise: 0, sadness: 0, disgust: 0, anger: 0, anticipation: 0 },
     totalArticles: 0,
-    isFuture: true
+    isFuture: true,
+    isHistorical: false
   };
 
   const emotionTheme = getEmotionTheme(currentData.dominantEmotion);
@@ -227,24 +232,32 @@ export default function TimelinePage() {
   };
 
   const getDateLabel = (dateString: string, index: number) => {
-    if (index === 0) return 'Today';
-    if (index === 1) return 'Tomorrow';
-    
     const date = new Date(dateString);
     const today = new Date();
     const diffTime = date.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays <= 7) return `In ${diffDays} days`;
-    if (diffDays <= 14) return `In ${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) > 1 ? 's' : ''}`;
-    return `In ${Math.ceil(diffDays / 7)} weeks`;
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    
+    if (diffDays > 0) {
+      if (diffDays <= 7) return `In ${diffDays} days`;
+      if (diffDays <= 14) return `In ${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) > 1 ? 's' : ''}`;
+      return `In ${Math.ceil(diffDays / 7)} weeks`;
+    } else {
+      const absDays = Math.abs(diffDays);
+      if (absDays <= 7) return `${absDays} days ago`;
+      if (absDays <= 14) return `${Math.ceil(absDays / 7)} week${Math.ceil(absDays / 7) > 1 ? 's' : ''} ago`;
+      return `${Math.ceil(absDays / 7)} weeks ago`;
+    }
   };
 
   return (
     <PageLoader 
       type="timeline" 
       emotion={currentEmotion}
-      message="Building future emotional timeline"
+      message="Building comprehensive emotional timeline"
       minLoadTime={3800}
     >
       <div className="min-h-screen bg-black text-white relative overflow-hidden">
@@ -339,31 +352,31 @@ export default function TimelinePage() {
         
         <div className="relative z-10 p-6">
           <div className="max-w-7xl mx-auto">
-            {/* Premium Header with mt-16 */}
-            <div className="mb-8 mt-16">
+            {/* Premium Header with increased margin */}
+            <div className="mb-8 mt-24">
               <h1 className="text-3xl font-bold mb-2 flex items-center">
                 <CalendarDays className="h-8 w-8 mr-3 text-blue-400" />
-                Future Emotional Timeline
+                Emotional Timeline
               </h1>
               <p className="text-gray-400 text-lg">
-                Explore the next 30 days - emotions will update automatically as news develops
+                Journey through 60 days of emotional data - from 30 days ago to 30 days ahead
               </p>
               <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
                 <div className="flex items-center space-x-2">
                   <Database className="h-4 w-4 text-green-400" />
-                  <span>Live Updates</span>
+                  <span>Historical Data</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Zap className="h-4 w-4 text-yellow-400" />
-                  <span>Auto-Refresh</span>
+                  <span>Live Updates</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <TrendingUp className="h-4 w-4 text-blue-400" />
-                  <span>Future Predictions</span>
+                  <span>Future Tracking</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                  <span>30 Days Ahead</span>
+                  <span>61 Days Total</span>
                 </div>
               </div>
             </div>
@@ -372,9 +385,9 @@ export default function TimelinePage() {
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white/50 mx-auto mb-6"></div>
-                  <div className="text-white text-xl font-semibold text-glow">Preparing Future Timeline</div>
+                  <div className="text-white text-xl font-semibold text-glow">Building Comprehensive Timeline</div>
                   <div className="text-white/60 text-sm mt-3">
-                    Setting up the next 30 days with zero emotions by default...
+                    Loading historical data and setting up future tracking...
                   </div>
                 </div>
               </div>
@@ -393,7 +406,8 @@ export default function TimelinePage() {
                           <Badge 
                             variant="outline" 
                             className={`glass-button border-white/30 text-white px-3 py-1 ${
-                              currentData.isFuture ? 'bg-blue-500/20' : 'bg-green-500/20'
+                              currentData.isFuture ? 'bg-blue-500/20' : 
+                              currentData.isHistorical ? 'bg-purple-500/20' : 'bg-green-500/20'
                             }`}
                           >
                             {getDateLabel(currentData.date, currentDay[0])}
@@ -406,6 +420,14 @@ export default function TimelinePage() {
                               Future
                             </Badge>
                           )}
+                          {currentData.isHistorical && (
+                            <Badge 
+                              variant="outline" 
+                              className="glass-button border-purple-400/50 text-purple-200 px-2 py-1 text-xs"
+                            >
+                              Historical
+                            </Badge>
+                          )}
                         </div>
                       </CardTitle>
                     </CardHeader>
@@ -414,8 +436,9 @@ export default function TimelinePage() {
                         {/* Timeline Slider */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm text-gray-400">
-                            <span>Today</span>
-                            <span>30 days from now</span>
+                            <span>30 days ago</span>
+                            <span className="text-green-400 font-semibold">Today</span>
+                            <span>30 days ahead</span>
                           </div>
                           <Slider
                             value={currentDay}
@@ -462,7 +485,11 @@ export default function TimelinePage() {
                   <Card className="glass-card border-white/20 hover-glow premium-hover">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
-                        <span>{currentData.isFuture ? 'Future Story Slot' : 'Today\'s Peak Story'}</span>
+                        <span>
+                          {currentData.isFuture ? 'Future Story Slot' : 
+                           currentData.isHistorical ? 'Historical Peak Story' : 
+                           'Today\'s Peak Story'}
+                        </span>
                         <Badge 
                           variant="outline" 
                           className={`${emotionTheme.bgColor} ${emotionTheme.textColor} ${emotionTheme.borderColor} bg-opacity-80`}
@@ -524,9 +551,14 @@ export default function TimelinePage() {
                             ) : (
                               <>
                                 <SearchX className="h-12 w-12 text-gray-500 mx-auto mb-3" />
-                                <div className="text-gray-400 mb-2 text-lg font-semibold">No articles found for today</div>
+                                <div className="text-gray-400 mb-2 text-lg font-semibold">
+                                  No articles found for {currentData.isHistorical ? 'this historical day' : 'today'}
+                                </div>
                                 <div className="text-sm text-gray-500">
-                                  Check back later as news develops throughout the day
+                                  {currentData.isHistorical 
+                                    ? 'No news data available for this date in our database'
+                                    : 'Check back later as news develops throughout the day'
+                                  }
                                 </div>
                               </>
                             )}
@@ -546,6 +578,11 @@ export default function TimelinePage() {
                         {currentData.isFuture && (
                           <Badge variant="outline" className="text-xs bg-blue-500/20 border-blue-400/50 text-blue-200">
                             Zero State
+                          </Badge>
+                        )}
+                        {currentData.isHistorical && (
+                          <Badge variant="outline" className="text-xs bg-purple-500/20 border-purple-400/50 text-purple-200">
+                            Historical
                           </Badge>
                         )}
                       </CardTitle>
@@ -605,15 +642,21 @@ export default function TimelinePage() {
                             <CalendarDays className="h-4 w-4 mr-2" />
                             Day:
                           </span>
-                          <span className="text-glow">{currentDay[0] + 1}/30</span>
+                          <span className="text-glow">{currentDay[0] + 1}/61</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-400 flex items-center">
-                            {currentData.isFuture ? <Clock className="h-4 w-4 mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                            {currentData.isFuture ? <Clock className="h-4 w-4 mr-2" /> : 
+                             currentData.isHistorical ? <Database className="h-4 w-4 mr-2" /> :
+                             <CheckCircle className="h-4 w-4 mr-2" />}
                             Status:
                           </span>
-                          <span className={`text-glow ${currentData.isFuture ? 'text-blue-400' : 'text-green-400'}`}>
-                            {currentData.isFuture ? 'Future' : 'Current'}
+                          <span className={`text-glow ${
+                            currentData.isFuture ? 'text-blue-400' : 
+                            currentData.isHistorical ? 'text-purple-400' : 'text-green-400'
+                          }`}>
+                            {currentData.isFuture ? 'Future' : 
+                             currentData.isHistorical ? 'Historical' : 'Current'}
                           </span>
                         </div>
                         <div className="flex justify-between">
