@@ -234,7 +234,7 @@ export default function Navigation() {
                   <div className="flex items-center space-x-3">
                     {/* User Avatar with Initial */}
                     <div className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-white/10 border border-white/20">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br bg-black flex items-center justify-center text-white font-bold text-sm shadow-lg">
                         {getUserInitial()}
                       </div>
                       <span className="text-white/90 text-sm font-medium hidden lg:block">
