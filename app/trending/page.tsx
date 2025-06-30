@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
+import { NotificationContainer, showNotification } from '@/components/ui/notification';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import { ProcessedNewsArticle } from '@/lib/news-data';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { fetchTrendingNews } from '@/lib/store/slices/newsSlice';
 import { supabase } from '@/lib/supabase';
+import { musicManager } from '@/lib/music';
 import { TrendingUp, Clock, Globe, ExternalLink, Edit as Reddit, Database, Zap, Bookmark } from 'lucide-react';
 
 export default function TrendingPage() {
@@ -23,6 +25,11 @@ export default function TrendingPage() {
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   
   const [bookmarkingStates, setBookmarkingStates] = useState<Record<string, boolean>>({});
+
+  // Play emotion-based music when page loads
+  useEffect(() => {
+    musicManager.playEmotionMusic(dominantEmotion);
+  }, [dominantEmotion]);
 
   // Check authentication on mount
   useEffect(() => {
@@ -59,10 +66,11 @@ export default function TrendingPage() {
     }
   }, [dispatch, trendingArticles.length, loadingAuth]);
 
-  // Add bookmark function
+  // Add bookmark function with notification
   const addBookmark = async (article: ProcessedNewsArticle) => {
     if (!user) {
       console.error('User not authenticated');
+      showNotification('Please sign in to bookmark articles', 'error');
       return;
     }
 
@@ -86,13 +94,14 @@ export default function TrendingPage() {
 
       if (error) {
         console.error('Error adding bookmark:', error);
-        // You could add a toast notification here
+        showNotification('Failed to add bookmark', 'error');
       } else {
         console.log('Bookmark added successfully:', data);
-        // You could add a success toast notification here
+        showNotification('Added to Cosmark!', 'success');
       }
     } catch (error) {
       console.error('Unexpected error adding bookmark:', error);
+      showNotification('An unexpected error occurred', 'error');
     } finally {
       // Remove loading state
       setBookmarkingStates(prev => ({ ...prev, [article.id]: false }));
@@ -149,6 +158,7 @@ export default function TrendingPage() {
     >
       <div className="min-h-screen bg-black text-white">
         <Navigation />
+        <NotificationContainer />
         
         <div className="mt-16 pt-16 p-6">
           <div className="max-w-7xl mx-auto">

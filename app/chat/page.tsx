@@ -12,6 +12,7 @@ import { useAppSelector } from '@/lib/store/hooks';
 import { getEmotionTheme } from '@/lib/emotions';
 import { supabase } from '@/lib/supabase';
 import { fetchUserBookmarks, deleteUserBookmark, BookmarkedArticle } from '@/lib/news-data';
+import { musicManager } from '@/lib/music';
 import { 
   Send, 
   Mic, 
@@ -37,6 +38,7 @@ interface NewsCard {
   position: { x: number; y: number };
   category: string;
   bookmarkId?: string;
+  emotion: string;
 }
 
 export default function ChatPage() {
@@ -63,6 +65,11 @@ export default function ChatPage() {
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   const emotionTheme = getEmotionTheme(dominantEmotion);
+
+  // Play chat music when page loads
+  useEffect(() => {
+    musicManager.playChatMusic('ambient');
+  }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -92,6 +99,25 @@ export default function ChatPage() {
     checkAuth();
   }, [router]);
 
+  // Generate random positions for cards
+  const generateRandomPosition = (index: number) => {
+    const padding = 50;
+    const cardWidth = 288; // w-72
+    const cardHeight = 176; // h-44
+    
+    const maxX = window.innerWidth - cardWidth - padding;
+    const maxY = window.innerHeight - cardHeight - padding;
+    
+    // Use a combination of random and index-based positioning to avoid overlap
+    const baseX = (index % 3) * (maxX / 3) + Math.random() * (maxX / 3 - cardWidth);
+    const baseY = Math.floor(index / 3) * 200 + Math.random() * 100 + padding;
+    
+    return {
+      x: Math.max(padding, Math.min(maxX, baseX)),
+      y: Math.max(padding, Math.min(maxY, baseY))
+    };
+  };
+
   // Load user bookmarks
   useEffect(() => {
     const loadBookmarks = async () => {
@@ -101,17 +127,15 @@ export default function ChatPage() {
         setLoadingBookmarks(true);
         const bookmarks = await fetchUserBookmarks(user.id);
         
-        // Convert bookmarks to NewsCard format
+        // Convert bookmarks to NewsCard format with random positions
         const bookmarkCards: NewsCard[] = bookmarks.map((bookmark, index) => ({
           id: bookmark.id,
           title: bookmark.title,
           content: `From r/${bookmark.subreddit} • ${bookmark.emotion} (${bookmark.emotion_intensity}% intensity)`,
-          position: { 
-            x: 120 + (index % 3) * 200, 
-            y: 180 + Math.floor(index / 3) * 200 
-          },
+          position: generateRandomPosition(index),
           category: bookmark.emotion,
-          bookmarkId: bookmark.id
+          bookmarkId: bookmark.id,
+          emotion: bookmark.emotion
         }));
         
         setCards(bookmarkCards);
@@ -516,7 +540,7 @@ ${selectedCards.map(card => `
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
         <Navigation />
 
-        {/* Floating cosmic news cards */}
+        {/* Floating cosmic news cards with emotion-based glow */}
         <div className="absolute inset-0 z-10">
           {loadingBookmarks ? (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -526,60 +550,81 @@ ${selectedCards.map(card => `
               </div>
             </div>
           ) : (
-            cards.map((card) => (
-              <div
-                key={card.id}
-                onMouseDown={(e) => handleMouseDown(e, card)}
-                className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
-                  vanishingCards.includes(card.id)
-                    ? 'animate-vanish cursor-default'
-                    : isDragging && draggedCard?.id === card.id 
-                      ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
-                      : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
-                }`}
-                style={{
-                  transform: `translate(${card.position.x}px, ${card.position.y}px)`,
-                  opacity: vanishingCards.includes(card.id) ? 0 : 1,
-                  pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
-                }}
-              >
-                {/* Delete button */}
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteBookmark(card.id);
+            cards.map((card) => {
+              const cardEmotionTheme = getEmotionTheme(card.emotion as any);
+              return (
+                <div
+                  key={card.id}
+                  onMouseDown={(e) => handleMouseDown(e, card)}
+                  className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
+                    vanishingCards.includes(card.id)
+                      ? 'animate-vanish cursor-default'
+                      : isDragging && draggedCard?.id === card.id 
+                        ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
+                        : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
+                  }`}
+                  style={{
+                    transform: `translate(${card.position.x}px, ${card.position.y}px)`,
+                    opacity: vanishingCards.includes(card.id) ? 0 : 1,
+                    pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto',
+                    boxShadow: `0 0 20px ${cardEmotionTheme.color}40, 0 8px 32px rgba(255,255,255,0.1)`,
+                    borderColor: `${cardEmotionTheme.color}60`
                   }}
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors z-20"
                 >
-                  <X className="w-3 h-3" />
-                </Button>
+                  {/* Delete button */}
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteBookmark(card.id);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors z-20"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
 
-                <div className="flex items-start mb-3">
-                  <div className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                    <Star className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <Badge 
-                      variant="outline" 
-                      className="text-xs mb-2 glass-button border-white/30 text-white/80"
+                  <div className="flex items-start mb-3">
+                    <div 
+                      className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+                      style={{ 
+                        backgroundColor: `${cardEmotionTheme.color}20`,
+                        borderColor: `${cardEmotionTheme.color}60`
+                      }}
                     >
-                      {card.category}
-                    </Badge>
-                    <h3 className="text-sm font-light text-white leading-tight text-glow">
-                      {card.title}
-                    </h3>
+                      <Star className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs mb-2 glass-button border-white/30 text-white/80"
+                        style={{ 
+                          backgroundColor: `${cardEmotionTheme.color}20`,
+                          borderColor: `${cardEmotionTheme.color}60`
+                        }}
+                      >
+                        {card.category}
+                      </Badge>
+                      <h3 className="text-sm font-light text-white leading-tight text-glow">
+                        {card.title}
+                      </h3>
+                    </div>
                   </div>
+                  <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
+                    {card.content}
+                  </p>
+                  
+                  <div 
+                    className="absolute top-2 right-8 w-2 h-2 border-t-2 border-r-2"
+                    style={{ borderColor: `${cardEmotionTheme.color}60` }}
+                  ></div>
+                  <div 
+                    className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2"
+                    style={{ borderColor: `${cardEmotionTheme.color}60` }}
+                  ></div>
                 </div>
-                <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
-                  {card.content}
-                </p>
-                
-                <div className="absolute top-2 right-8 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
-                <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

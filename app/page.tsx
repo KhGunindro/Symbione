@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import ThreeGlobe from '@/components/three/ThreeGlobe';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
+import { NotificationContainer } from '@/components/ui/notification';
 import { getEmotionTheme, EmotionType, EMOTIONS } from '@/lib/emotions';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { forceEmotionUpdate } from '@/lib/store/slices/emotionSlice';
+import { musicManager } from '@/lib/music';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +27,11 @@ export default function Home() {
   
   // Use octant dominant emotion for the Earth's glow, fallback to regular dominant emotion
   const currentEmotion = octantDominantEmotion || dominantEmotion;
+
+  // Play emotion-based music when page loads
+  useEffect(() => {
+    musicManager.playEmotionMusic(currentEmotion);
+  }, [currentEmotion]);
 
   // Force emotion update if we don't have fresh data
   useEffect(() => {
@@ -128,6 +135,7 @@ export default function Home() {
     >
       <div className="min-h-screen bg-black text-white relative overflow-hidden">
         <Navigation />
+        <NotificationContainer />
         
         {/* Enhanced Cosmic Background with Starfield, Stardust, and Nebulae */}
         <div className="fixed inset-0 z-0 pointer-events-none">
@@ -672,7 +680,7 @@ export default function Home() {
             }
           }
 
-          /* Cosmic Dust Trails */
+          /* Cosmic Dust Trails */}
           .cosmic-dust-container {
             position: absolute;
             width: 100%;
@@ -724,7 +732,7 @@ export default function Home() {
             }
           }
 
-          /* Distant Galaxies */
+          /* Distant Galaxies */}
           .galaxy-container {
             position: absolute;
             width: 100%;
