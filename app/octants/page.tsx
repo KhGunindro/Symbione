@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EMOTIONS, EmotionType, getEmotionTheme } from '@/lib/emotions';
-import { ProcessedNewsArticle } from '@/lib/news-data';
+import { ProcessedNewsArticle, getEmotionDistribution } from '@/lib/news-data';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { fetchOctantNews, fetchHistoricalOctantNews } from '@/lib/store/slices/newsSlice';
 import { Brain, Filter, Sparkles, Zap, Eye, MousePointer, Calendar, Clock, TrendingUp, BarChart3, ChevronLeft, ChevronRight, Atom, Layers, Hexagon, Database, Cpu, Menu, X } from 'lucide-react';
@@ -25,7 +25,7 @@ export default function OctantsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar toggle
   
   // Get state from store
-  const { dominantEmotion, octantEmotionDistribution } = useAppSelector(state => state.emotion);
+  const { dominantEmotion } = useAppSelector(state => state.emotion);
   const { octantArticles, historicalOctantArticles, isLoading } = useAppSelector(state => state.news);
 
   const emotions = Object.entries(EMOTIONS);
@@ -56,6 +56,9 @@ export default function OctantsPage() {
 
   // Get current articles based on view type
   const currentArticles = currentView === 'yearly' ? historicalOctantArticles : octantArticles;
+
+  // Calculate emotion distribution for current view
+  const currentEmotionDistribution = getEmotionDistribution(currentArticles);
 
   // Load articles on mount and when view changes
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function OctantsPage() {
   };
 
   const emotionTheme = getEmotionTheme(dominantEmotion);
-  const totalArticles = Object.values(octantEmotionDistribution).reduce((sum, count) => sum + count, 0);
+  const totalArticles = Object.values(currentEmotionDistribution).reduce((sum, count) => sum + count, 0);
 
   return (
     <PageLoader 
@@ -343,6 +346,16 @@ export default function OctantsPage() {
                   <div className="flex items-center">
                     <BarChart3 className="h-4 w-4 mr-2 text-white" />
                     Emotional Distribution
+                    <Badge 
+                      variant="outline" 
+                      className={`ml-2 text-xs px-2 py-0.5 ${
+                        currentView === 'today' 
+                          ? 'bg-blue-500/20 border-blue-400/50 text-blue-200' 
+                          : 'bg-purple-500/20 border-purple-400/50 text-purple-200'
+                      }`}
+                    >
+                      {currentView === 'today' ? 'Recent' : 'Historical'}
+                    </Badge>
                   </div>
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <Button
@@ -387,7 +400,7 @@ export default function OctantsPage() {
               <CardContent className="space-y-3 sm:space-y-4">
                 <div className="transition-all duration-500 ease-in-out space-y-2 sm:space-y-3">
                   {getCurrentDistributionEmotions().map(([key, emotion]) => {
-                    const count = octantEmotionDistribution[key as EmotionType] || 0;
+                    const count = currentEmotionDistribution[key as EmotionType] || 0;
                     const percentage = totalArticles > 0 ? ((count / totalArticles) * 100).toFixed(1) : '0.0';
                     
                     return (
@@ -438,7 +451,7 @@ export default function OctantsPage() {
                     </div>
                     <div>
                       <div className="text-base sm:text-lg font-bold text-green-400">
-                        {Object.values(octantEmotionDistribution).filter(count => count > 0).length}
+                        {Object.values(currentEmotionDistribution).filter(count => count > 0).length}
                       </div>
                       <div className="text-xs text-white/60">Active Emotions</div>
                     </div>
@@ -733,7 +746,7 @@ export default function OctantsPage() {
             }
           }
 
-          /* Cosmic Dust Trails */}
+          /* Cosmic Dust Trails */
           .cosmic-dust-container {
             position: absolute;
             width: 100%;
