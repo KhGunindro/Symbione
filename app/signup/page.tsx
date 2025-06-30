@@ -337,7 +337,7 @@ export default function SignupPage() {
                           placeholder="First name"
                           value={formData.firstName}
                           onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
+                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
                             errors.firstName ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -355,7 +355,7 @@ export default function SignupPage() {
                           placeholder="Last name"
                           value={formData.lastName}
                           onChange={(e) => handleInputChange('lastName', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
+                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
                             errors.lastName ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -376,7 +376,7 @@ export default function SignupPage() {
                         placeholder="Enter your email address"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
+                        className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] shadow-lg hover:shadow-xl focus:shadow-2xl ${
                           errors.email ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
@@ -397,7 +397,7 @@ export default function SignupPage() {
                           placeholder="Create a strong password (min 6 characters)"
                           value={formData.password}
                           onChange={(e) => handleInputChange('password', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl ${
+                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl ${
                             errors.password ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -427,7 +427,7 @@ export default function SignupPage() {
                           placeholder="Confirm your password"
                           value={formData.confirmPassword}
                           onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl ${
+                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl ${
                             errors.confirmPassword ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
