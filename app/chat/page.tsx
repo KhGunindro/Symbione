@@ -711,16 +711,6 @@ ${selectedCards.map(card => `
                   <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
                     {card.content}
                   </p>
-                  
-                  {/* Decorative corners */}
-                  <div 
-                    className="absolute top-3 right-10 w-3 h-3 border-t-2 border-r-2 rounded-tr-lg"
-                    style={{ borderColor: `${cardEmotionTheme.color}60` }}
-                  ></div>
-                  <div 
-                    className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 rounded-bl-lg"
-                    style={{ borderColor: `${cardEmotionTheme.color}60` }}
-                  ></div>
                 </div>
               );
             })
@@ -741,17 +731,12 @@ ${selectedCards.map(card => `
           <CardHeader className="border-b border-white/20 rounded-t-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center">
-                  <Brain className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-light tracking-wider text-glow">
-                    COSMARK
-                  </CardTitle>
-                  <p className="text-xs text-white/60 tracking-wide font-medium">
-                    Cosmic Intelligence Interface
-                  </p>
-                </div>
+                <CardTitle className="text-xl font-light tracking-wider text-glow">
+                  COSMARK
+                </CardTitle>
+                <p className="text-xs text-white/60 tracking-wide font-medium">
+                  Cosmic Intelligence Interface
+                </p>
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -782,8 +767,8 @@ ${selectedCards.map(card => `
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-white/50 text-sm">
                 <div className="text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center mx-auto mb-6">
-                    <MessageCircle className="w-8 h-8 opacity-50 animate-float" />
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <Brain className="w-8 h-8 opacity-50 animate-float text-white" />
                   </div>
                   <p className="text-glow font-medium mb-2">Drag your bookmarked cards here to begin your journey</p>
                   <p className="text-xs mt-2 text-white/40">or simply ask me anything about the cosmos</p>
