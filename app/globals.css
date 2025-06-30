@@ -96,6 +96,58 @@
   }
 }
 
+/* IMPORTANT: Fix placeholder text visibility - Override global styles */
+@layer components {
+  /* Force placeholder text to be visible with dark grey color */
+  input::placeholder,
+  textarea::placeholder {
+    color: #6b7280 !important; /* gray-500 */
+    opacity: 1 !important;
+  }
+  
+  /* Specific override for login/signup forms */
+  .auth-input::placeholder {
+    color: #4b5563 !important; /* gray-600 - even darker for better visibility */
+    opacity: 1 !important;
+  }
+  
+  /* WebKit browsers (Chrome, Safari, Edge) */
+  input::-webkit-input-placeholder,
+  textarea::-webkit-input-placeholder {
+    color: #6b7280 !important;
+    opacity: 1 !important;
+  }
+  
+  .auth-input::-webkit-input-placeholder {
+    color: #4b5563 !important;
+    opacity: 1 !important;
+  }
+  
+  /* Firefox */
+  input::-moz-placeholder,
+  textarea::-moz-placeholder {
+    color: #6b7280 !important;
+    opacity: 1 !important;
+  }
+  
+  .auth-input::-moz-placeholder {
+    color: #4b5563 !important;
+    opacity: 1 !important;
+  }
+  
+  /* Edge */
+  input::-ms-input-placeholder,
+  textarea::-ms-input-placeholder {
+    color: #6b7280 !important;
+    opacity: 1 !important;
+  }
+  
+  .auth-input::-ms-input-placeholder {
+    color: #4b5563 !important;
+    opacity: 1 !important;
+  }
+}
+
 /* Premium Glassmorphism utilities */
 @layer utilities {
   .glass {

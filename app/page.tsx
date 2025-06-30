@@ -137,6 +137,15 @@ export default function Home() {
         <Navigation />
         <NotificationContainer />
         
+        {/* Logo.png Creative Placement - Floating in top left */}
+        <div className="fixed top-20 left-6 z-30 animate-float">
+          <img 
+            src="/logo.png" 
+            alt="Symbione" 
+            className="h-16 w-16 object-contain opacity-80 hover:opacity-100 transition-opacity duration-300"
+          />
+        </div>
+        
         {/* Enhanced Cosmic Background with Starfield, Stardust, and Nebulae */}
         <div className="fixed inset-0 z-0 pointer-events-none">
           {/* Main Starfield */}
@@ -493,7 +502,7 @@ export default function Home() {
                     <span className="flex items-center">
                       <Brain className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 mr-2 sm:mr-3 lg:mr-4" />
                       Start Your Journey
-                      <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 ml-2 sm:ml-3 lg:ml-4" />
+                      <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 ml-2 sm:mr-3 lg:ml-4" />
                     </span>
                   </Button>
                 </CardContent>
@@ -732,7 +741,7 @@ export default function Home() {
             }
           }
 
-          /* Distant Galaxies */}
+          /* Distant Galaxies */
           .galaxy-container {
             position: absolute;
             width: 100%;

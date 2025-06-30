@@ -9,7 +9,6 @@ import { musicManager } from '@/lib/music';
 import { 
   Menu, 
   X, 
-  Sparkles, 
   Home, 
   Brain, 
   TrendingUp, 
@@ -165,7 +164,11 @@ export default function Navigation() {
                 className="flex items-center space-x-3 group"
               >
                 <div className="relative">
-                  <Sparkles className="h-8 w-8 text-white group-hover:text-white/80 transition-all duration-300 group-hover:scale-110 animate-pulse" />
+                  <img 
+                    src="/symlog.png" 
+                    alt="Symbione Logo" 
+                    className="h-8 w-8 object-contain group-hover:scale-110 transition-all duration-300"
+                  />
                   <div className="absolute inset-0 bg-white/20 rounded-full blur-lg group-hover:bg-white/30 transition-all duration-300"></div>
                 </div>
                 <span className="text-xl font-bold text-white text-glow group-hover:scale-105 transition-transform duration-300">

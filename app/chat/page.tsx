@@ -15,7 +15,6 @@ import { fetchUserBookmarks, deleteUserBookmark, BookmarkedArticle } from '@/lib
 import { musicManager } from '@/lib/music';
 import { 
   Send, 
-  Mic, 
   Star, 
   FileText, 
   X, 
@@ -50,7 +49,6 @@ export default function ChatPage() {
   const [user, setUser] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedCards, setSelectedCards] = useState<NewsCard[]>([]);
   const [draggedCard, setDraggedCard] = useState<NewsCard | null>(null);
@@ -587,15 +585,6 @@ ${selectedCards.map(card => `
     }
   };
 
-  // Handle microphone click
-  const handleMicClick = () => {
-    setIsRecording(true);
-    setTimeout(() => {
-      setIsRecording(false);
-      setInputValue("What are the implications of quantum computing for space exploration?");
-    }, 4000);
-  };
-
   // Show loading screen while checking auth
   if (loadingAuth) {
     return (
@@ -626,6 +615,15 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
+        {/* Logo.png Creative Placement - Floating in top left */}
+        <div className="fixed top-20 left-6 z-30 animate-float">
+          <img 
+            src="/logo.png" 
+            alt="Symbione" 
+            className="h-12 w-12 object-contain opacity-70 hover:opacity-100 transition-opacity duration-300"
+          />
+        </div>
+
         {/* Static Noise Wavy Particles Background */}
         <canvas
           ref={noiseCanvasRef}
@@ -869,15 +867,6 @@ ${selectedCards.map(card => `
                   disabled={isTyping}
                 />
               </div>
-              <Button
-                onClick={handleMicClick}
-                disabled={isTyping}
-                variant="outline"
-                size="sm"
-                className="w-12 h-12 glass-button border-white/30 rounded-2xl hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-              >
-                {isRecording ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
-              </Button>
               <Button
                 onClick={sendMessage}
                 disabled={isTyping || (!inputValue.trim() && selectedCards.length === 0)}
