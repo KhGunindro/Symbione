@@ -29,6 +29,11 @@ export const fetchTrendingNews = createAsyncThunk(
   'news/fetchTrending',
   async (limit: number = 20, { rejectWithValue }) => {
     try {
+      // Skip during SSR/build
+      if (typeof window === 'undefined') {
+        return [];
+      }
+
       console.log(`Fetching ${limit} most recent trending articles...`);
       const articles = await fetchTrendingArticles(limit);
       console.log(`Successfully fetched ${articles.length} trending articles`);
@@ -45,6 +50,11 @@ export const fetchOctantNews = createAsyncThunk(
   'news/fetchOctant',
   async (limit: number = 1000, { rejectWithValue, dispatch }) => {
     try {
+      // Skip during SSR/build
+      if (typeof window === 'undefined') {
+        return [];
+      }
+
       console.log(`Fetching ${limit} octant articles...`);
       const articles = await fetchOctantArticles(limit);
       console.log(`Successfully fetched ${articles.length} octant articles`);
@@ -65,6 +75,11 @@ export const fetchHistoricalOctantNews = createAsyncThunk(
   'news/fetchHistoricalOctant',
   async (_, { rejectWithValue, dispatch }) => {
     try {
+      // Skip during SSR/build
+      if (typeof window === 'undefined') {
+        return [];
+      }
+
       console.log('Fetching historical octant articles...');
       const articles = await fetchHistoricalOctantArticles();
       console.log(`Successfully fetched ${articles.length} historical octant articles`);
@@ -84,6 +99,11 @@ export const fetchHistoricalOctantNews = createAsyncThunk(
 export const fetchAllNews = createAsyncThunk(
   'news/fetchAll',
   async (_, { getState, dispatch }) => {
+    // Skip during SSR/build
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
     const state = getState() as { news: NewsState };
     const { lastFetchTime, cacheExpiry } = state.news;
     

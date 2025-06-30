@@ -10,6 +10,9 @@ export default function EmotionUpdater() {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+
     // IMMEDIATE emotion update on app startup with database connection test
     const initializeData = async () => {
       try {

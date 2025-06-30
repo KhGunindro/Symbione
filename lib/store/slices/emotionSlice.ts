@@ -43,6 +43,11 @@ export const fetchDominantEmotion = createAsyncThunk(
   'emotion/fetchDominantEmotion',
   async (_, { rejectWithValue }) => {
     try {
+      // Skip during SSR/build
+      if (typeof window === 'undefined') {
+        return 'joy' as EmotionType;
+      }
+
       console.log('Fetching dominant emotion from database...');
       const emotion = await getCurrentDominantEmotion();
       console.log(`Dominant emotion fetched: ${emotion}`);
@@ -58,6 +63,11 @@ export const fetchDominantEmotion = createAsyncThunk(
 export const checkAndUpdateEmotion = createAsyncThunk(
   'emotion/checkAndUpdateEmotion',
   async (_, { getState, dispatch }) => {
+    // Skip during SSR/build
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
     const state = getState() as { emotion: EmotionState };
     const { lastUpdated, updateInterval } = state.emotion;
     
@@ -79,6 +89,11 @@ export const checkAndUpdateEmotion = createAsyncThunk(
 export const forceEmotionUpdate = createAsyncThunk(
   'emotion/forceUpdate',
   async (_, { dispatch }) => {
+    // Skip during SSR/build
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
     console.log('Forcing immediate emotion update...');
     return dispatch(fetchDominantEmotion());
   }
