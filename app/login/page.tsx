@@ -20,6 +20,7 @@ interface Particle {
   vy: number;
   size: number;
   opacity: number;
+  glow: number;
 }
 
 export default function LoginPage() {
@@ -71,7 +72,7 @@ export default function LoginPage() {
     }
   }, [formData.email]);
 
-  // Initialize dynamic star particles
+  // Enhanced premium particle background
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -80,14 +81,15 @@ export default function LoginPage() {
     canvas.width = rect.width;
     canvas.height = rect.height;
 
-    // Create star particles with varied properties
-    particlesRef.current = Array.from({ length: 300 }, () => ({
+    // Create premium white particles with enhanced properties
+    particlesRef.current = Array.from({ length: 400 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      size: Math.random() * 2 + 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      size: Math.random() * 2.5 + 0.5,
       opacity: Math.random() * 0.8 + 0.2,
+      glow: Math.random() * 0.5 + 0.5,
     }));
 
     const animate = () => {
@@ -97,8 +99,8 @@ export default function LoginPage() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Enhanced mouse influence
-      const mouseInfluence = 180;
-      const mouseForce = 0.03;
+      const mouseInfluence = 200;
+      const mouseForce = 0.04;
 
       particlesRef.current.forEach((particle) => {
         // Enhanced mouse interaction
@@ -127,33 +129,40 @@ export default function LoginPage() {
         particle.vx *= 0.995;
         particle.vy *= 0.995;
 
-        // Draw star particle with enhanced glow effect
+        // Draw premium particle with enhanced glow effect
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
         
-        // Add star-like glow with twinkling effect
-        const twinkle = 0.5 + 0.5 * Math.sin(Date.now() * 0.003 + particle.x * 0.01);
+        // Premium star-like glow with twinkling effect
+        const twinkle = 0.6 + 0.4 * Math.sin(Date.now() * 0.002 + particle.x * 0.01);
         const gradient = ctx.createRadialGradient(
           particle.x, particle.y, 0,
-          particle.x, particle.y, particle.size * 3
+          particle.x, particle.y, particle.size * 4
         );
         gradient.addColorStop(0, `rgba(255, 255, 255, ${particle.opacity * twinkle})`);
-        gradient.addColorStop(0.5, `rgba(200, 220, 255, ${particle.opacity * 0.6 * twinkle})`);
-        gradient.addColorStop(1, `rgba(255, 255, 255, ${particle.opacity * 0.1 * twinkle})`);
+        gradient.addColorStop(0.3, `rgba(240, 248, 255, ${particle.opacity * 0.8 * twinkle})`);
+        gradient.addColorStop(0.6, `rgba(220, 235, 255, ${particle.opacity * 0.4 * twinkle})`);
+        gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
         
         ctx.fillStyle = gradient;
         ctx.fill();
 
-        // Add cross-shaped star effect for larger particles
-        if (particle.size > 1.5) {
-          ctx.strokeStyle = `rgba(255, 255, 255, ${particle.opacity * 0.8 * twinkle})`;
-          ctx.lineWidth = 0.5;
+        // Add premium cross-shaped star effect for larger particles
+        if (particle.size > 1.8) {
+          ctx.strokeStyle = `rgba(255, 255, 255, ${particle.opacity * 0.9 * twinkle})`;
+          ctx.lineWidth = 0.6;
           ctx.beginPath();
-          ctx.moveTo(particle.x - particle.size * 2, particle.y);
-          ctx.lineTo(particle.x + particle.size * 2, particle.y);
-          ctx.moveTo(particle.x, particle.y - particle.size * 2);
-          ctx.lineTo(particle.x, particle.y + particle.size * 2);
+          ctx.moveTo(particle.x - particle.size * 2.5, particle.y);
+          ctx.lineTo(particle.x + particle.size * 2.5, particle.y);
+          ctx.moveTo(particle.x, particle.y - particle.size * 2.5);
+          ctx.lineTo(particle.x, particle.y + particle.size * 2.5);
           ctx.stroke();
+        }
+
+        // Add subtle sparkle effect
+        if (Math.random() < 0.02) {
+          ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity * twinkle})`;
+          ctx.fillRect(particle.x - 1, particle.y - 1, 2, 2);
         }
       });
 
@@ -169,7 +178,7 @@ export default function LoginPage() {
     };
   }, []);
 
-  // Enhanced mouse tracking with smoother updates
+  // Enhanced mouse tracking
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       const canvas = canvasRef.current;
@@ -250,7 +259,7 @@ export default function LoginPage() {
       <div className="min-h-screen bg-black relative overflow-hidden">
         <Navigation />
         
-        {/* Dynamic Star Canvas Background */}
+        {/* Premium Interactive Particle Background */}
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full pointer-events-none"
@@ -259,7 +268,7 @@ export default function LoginPage() {
 
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4 pt-20">
-          <Card className="w-full max-w-6xl bg-black rounded-3xl shadow-2xl overflow-hidden border border-gray-800 shadow-white/10">
+          <Card className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden border-0 shadow-white/20">
             <CardContent className="p-0 grid grid-cols-1 lg:grid-cols-2 min-h-[700px]">
               {/* Left Side - New Saturn Image */}
               <div className="bg-black flex items-center justify-center p-6 relative">
@@ -276,25 +285,21 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Right Side - Form with White Glow */}
-              <div className="p-8 lg:p-12 flex flex-col justify-center bg-black text-white relative">
-                {/* Subtle white glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/10 rounded-r-3xl opacity-50" />
-                <div className="absolute inset-0 shadow-[inset_0_0_50px_rgba(255,255,255,0.1)] rounded-r-3xl" />
-                
+              {/* Right Side - Form */}
+              <div className="p-8 lg:p-12 flex flex-col justify-center bg-white text-black relative">
                 <div className="relative z-10">
                   {/* Main Heading with Dynamic Name */}
-                  <h1 className="text-4xl lg:text-5xl font-normal text-white mb-8 text-center tracking-tight leading-tight font-serif">
+                  <h1 className="text-4xl lg:text-5xl font-normal text-black mb-8 text-center tracking-tight leading-tight font-serif">
                     Welcome Back {userName}
                   </h1>
 
                   {/* Sign In Section */}
                   <div className="text-center mb-8">
-                    <p className="text-base lg:text-lg text-gray-300">
+                    <p className="text-base lg:text-lg text-gray-600">
                       Don't have an account?{" "}
                       <Link 
                         href="/signup"
-                        className="underline cursor-pointer hover:text-white transition-all duration-300 text-white transform hover:scale-105"
+                        className="underline cursor-pointer hover:text-black transition-all duration-300 text-black transform hover:scale-105"
                       >
                         Sign up
                       </Link>
@@ -310,13 +315,13 @@ export default function LoginPage() {
                         placeholder="Enter your email address"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className={`h-12 bg-transparent border-gray-600 rounded-lg transition-all duration-300 hover:border-gray-500 focus:border-white focus:bg-transparent text-white placeholder-gray-400 text-base transform hover:scale-[1.02] focus:scale-[1.02] ${
+                        className={`h-12 bg-gray-100 border-gray-300 rounded-lg transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] ${
                           errors.email ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
                       />
                       {errors.email && (
-                        <p className="text-red-400 text-sm mt-1">{errors.email}</p>
+                        <p className="text-red-500 text-sm mt-1">{errors.email}</p>
                       )}
                     </div>
 
@@ -327,13 +332,13 @@ export default function LoginPage() {
                         placeholder="Enter your password"
                         value={formData.password}
                         onChange={(e) => handleInputChange('password', e.target.value)}
-                        className={`h-12 bg-transparent border-gray-600 rounded-lg transition-all duration-300 hover:border-gray-500 focus:border-white focus:bg-transparent text-white placeholder-gray-400 text-base transform hover:scale-[1.02] focus:scale-[1.02] ${
+                        className={`h-12 bg-gray-100 border-gray-300 rounded-lg transition-all duration-300 hover:border-gray-400 focus:border-black focus:bg-white text-black placeholder-gray-500 text-base transform hover:scale-[1.02] focus:scale-[1.02] ${
                           errors.password ? 'border-red-500' : ''
                         }`}
                         disabled={loading}
                       />
                       {errors.password && (
-                        <p className="text-red-400 text-sm mt-1">{errors.password}</p>
+                        <p className="text-red-500 text-sm mt-1">{errors.password}</p>
                       )}
                     </div>
 
@@ -344,16 +349,16 @@ export default function LoginPage() {
                           id="remember"
                           checked={formData.rememberMe}
                           onCheckedChange={(checked) => handleInputChange('rememberMe', checked as boolean)}
-                          className="w-4 h-4 rounded border-gray-600 data-[state=checked]:bg-white data-[state=checked]:border-white data-[state=checked]:text-black transition-all duration-200 hover:scale-110"
+                          className="w-4 h-4 rounded border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black data-[state=checked]:text-white transition-all duration-200 hover:scale-110"
                           disabled={loading}
                         />
-                        <label htmlFor="remember" className="text-sm text-gray-300 cursor-pointer transition-colors duration-200 hover:text-white">
+                        <label htmlFor="remember" className="text-sm text-gray-600 cursor-pointer transition-colors duration-200 hover:text-black">
                           Remember Password
                         </label>
                       </div>
                       <Link
                         href="/forgot-password"
-                        className="text-sm text-gray-300 hover:text-white transition-all duration-300 transform hover:scale-105"
+                        className="text-sm text-gray-600 hover:text-black transition-all duration-300 transform hover:scale-105"
                       >
                         Forgot Password?
                       </Link>
@@ -361,8 +366,8 @@ export default function LoginPage() {
 
                     {/* Submit Error */}
                     {errors.submit && (
-                      <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 animate-pulse">
-                        <p className="text-red-400 text-sm">{errors.submit}</p>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 animate-pulse">
+                        <p className="text-red-500 text-sm">{errors.submit}</p>
                       </div>
                     )}
 
@@ -370,7 +375,7 @@ export default function LoginPage() {
                     <Button
                       type="submit"
                       disabled={loading}
-                      className="w-full h-12 bg-white text-black rounded-lg transition-all duration-300 transform hover:scale-[1.05] active:scale-[0.98] mt-6 text-base hover:bg-gray-200 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-600 disabled:transform-none font-medium hover:shadow-lg"
+                      className="w-full h-12 bg-black text-white rounded-lg transition-all duration-300 transform hover:scale-[1.05] active:scale-[0.98] mt-6 text-base hover:bg-gray-800 disabled:bg-gray-400 disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-gray-400 disabled:transform-none font-medium hover:shadow-lg"
                     >
                       {loading ? (
                         <>

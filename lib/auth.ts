@@ -32,7 +32,7 @@ export const authService = {
     return { data, error };
   },
 
-  // Sign in with OAuth provider
+  // Sign in with OAuth provider - Updated redirect URL
   async signInWithProvider(provider: 'google' | 'github') {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
