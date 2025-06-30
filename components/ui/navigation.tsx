@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
+import { musicManager } from '@/lib/music';
 import { 
   Menu, 
   X, 
@@ -16,7 +18,8 @@ import {
   LogIn, 
   UserPlus,
   Volume2,
-  VolumeX
+  VolumeX,
+  LogOut
 } from 'lucide-react';
 
 const navigationItems = [
@@ -36,10 +39,18 @@ export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundLoaded, setSoundLoaded] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading, logout } = useAuth();
 
   const isActive = (href: string) => pathname === href;
+
+  // Initialize music state
+  useEffect(() => {
+    setMusicEnabled(musicManager.getEnabled());
+  }, []);
 
   // Load button click sound
   useEffect(() => {
@@ -84,6 +95,57 @@ export default function Navigation() {
 
   const handleSoundToggle = () => {
     setSoundEnabled(!soundEnabled);
+  };
+
+  const handleMusicToggle = () => {
+    const newMusicState = !musicEnabled;
+    setMusicEnabled(newMusicState);
+    musicManager.setEnabled(newMusicState);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  // Get user's first letter for avatar
+  const getUserInitial = () => {
+    if (!user) return '';
+    
+    // Try to get from user metadata first
+    const firstName = user.user_metadata?.first_name;
+    if (firstName) {
+      return firstName.charAt(0).toUpperCase();
+    }
+    
+    // Fallback to email
+    if (user.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    
+    return 'U'; // Ultimate fallback
+  };
+
+  // Get user's display name
+  const getUserName = () => {
+    if (!user) return '';
+    
+    const firstName = user.user_metadata?.first_name;
+    const lastName = user.user_metadata?.last_name;
+    
+    if (firstName && lastName) {
+      return `${firstName} ${lastName}`;
+    } else if (firstName) {
+      return firstName;
+    } else if (user.email) {
+      return user.email.split('@')[0];
+    }
+    
+    return 'User';
   };
 
   return (
@@ -150,47 +212,77 @@ export default function Navigation() {
                 {/* Separator */}
                 <div className="w-px h-6 bg-white/20 mx-2"></div>
 
-                {/* Sound Toggle Button */}
+                {/* Music Toggle Button */}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-9 w-9 p-0 text-white/70 hover:text-white hover:bg-white/10 border border-white/20"
-                  onClick={handleSoundToggle}
-                  title={soundEnabled ? 'Disable Sounds' : 'Enable Sounds'}
+                  onClick={handleMusicToggle}
+                  title={musicEnabled ? 'Disable Music' : 'Enable Music'}
                 >
-                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  {musicEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
                 </Button>
 
-                {/* Auth Buttons */}
-                <div className="flex items-center space-x-2">
-                  {authItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <Button
-                        key={item.href}
-                        variant={item.href === '/signup' ? "premium" : "outline"}
-                        size="sm"
-                        asChild
-                        className={`
-                          h-9 px-4 text-sm font-medium transition-all duration-300
-                          ${item.href === '/signup' 
-                            ? 'bg-white/20 text-white border-white/30 hover:bg-white/30 shadow-lg' 
-                            : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
-                          }
-                        `}
-                        onClick={playButtonSound}
-                      >
-                        <Link 
-                          href={item.href} 
-                          className="flex items-center space-x-2"
+                {/* Auth Section */}
+                {loading ? (
+                  <div className="h-9 w-20 bg-white/10 rounded animate-pulse"></div>
+                ) : user ? (
+                  /* Logged In State */
+                  <div className="flex items-center space-x-3">
+                    {/* User Avatar with Initial */}
+                    <div className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-white/10 border border-white/20">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                        {getUserInitial()}
+                      </div>
+                      <span className="text-white/90 text-sm font-medium hidden lg:block">
+                        {getUserName()}
+                      </span>
+                    </div>
+                    
+                    {/* Logout Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleLogout}
+                      className="h-9 px-4 text-sm font-medium border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      <span className="hidden lg:inline">Logout</span>
+                      <span className="lg:hidden">Out</span>
+                    </Button>
+                  </div>
+                ) : (
+                  /* Logged Out State */
+                  <div className="flex items-center space-x-2">
+                    {authItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Button
+                          key={item.href}
+                          variant={item.href === '/signup' ? "premium" : "outline"}
+                          size="sm"
+                          asChild
+                          className={`
+                            h-9 px-4 text-sm font-medium transition-all duration-300
+                            ${item.href === '/signup' 
+                              ? 'bg-white/20 text-white border-white/30 hover:bg-white/30 shadow-lg' 
+                              : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
+                            }
+                          `}
+                          onClick={playButtonSound}
                         >
-                          <Icon className="h-4 w-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </Button>
-                    );
-                  })}
-                </div>
+                          <Link 
+                            href={item.href} 
+                            className="flex items-center space-x-2"
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.label}</span>
+                          </Link>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Mobile Menu Button */}
@@ -251,52 +343,84 @@ export default function Navigation() {
               {/* Mobile Separator */}
               <div className="h-px bg-white/20 my-3"></div>
 
-              {/* Mobile Sound Toggle */}
+              {/* Mobile Music Toggle */}
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start h-11 px-4 text-sm font-medium text-white/70 hover:text-white hover:bg-white/10"
-                onClick={handleSoundToggle}
+                onClick={handleMusicToggle}
               >
                 <div className="flex items-center space-x-3 w-full">
-                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                  <span>{soundEnabled ? 'Sound On' : 'Sound Off'}</span>
+                  {musicEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  <span>{musicEnabled ? 'Music On' : 'Music Off'}</span>
                 </div>
               </Button>
 
-              {/* Mobile Auth Buttons */}
-              <div className="space-y-2">
-                {authItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Button
-                      key={item.href}
-                      variant={item.href === '/signup' ? "premium" : "outline"}
-                      size="sm"
-                      asChild
-                      className={`
-                        w-full justify-start h-11 px-4 text-sm font-medium transition-all duration-300
-                        ${item.href === '/signup' 
-                          ? 'bg-white/20 text-white border-white/30 hover:bg-white/30 shadow-lg' 
-                          : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
-                        }
-                      `}
-                      onClick={() => {
-                        playButtonSound();
-                        handleNavClick();
-                      }}
-                    >
-                      <Link 
-                        href={item.href} 
-                        className="flex items-center space-x-3 w-full"
+              {/* Mobile Auth Section */}
+              {loading ? (
+                <div className="h-11 bg-white/10 rounded animate-pulse"></div>
+              ) : user ? (
+                /* Mobile Logged In State */
+                <div className="space-y-2">
+                  {/* User Info */}
+                  <div className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-white/10 border border-white/20">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                      {getUserInitial()}
+                    </div>
+                    <span className="text-white/90 text-sm font-medium">
+                      {getUserName()}
+                    </span>
+                  </div>
+                  
+                  {/* Mobile Logout Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      handleLogout();
+                      handleNavClick();
+                    }}
+                    className="w-full justify-start h-11 px-4 text-sm font-medium border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50 transition-all duration-300"
+                  >
+                    <LogOut className="h-4 w-4 mr-3" />
+                    <span>Logout</span>
+                  </Button>
+                </div>
+              ) : (
+                /* Mobile Logged Out State */
+                <div className="space-y-2">
+                  {authItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Button
+                        key={item.href}
+                        variant={item.href === '/signup' ? "premium" : "outline"}
+                        size="sm"
+                        asChild
+                        className={`
+                          w-full justify-start h-11 px-4 text-sm font-medium transition-all duration-300
+                          ${item.href === '/signup' 
+                            ? 'bg-white/20 text-white border-white/30 hover:bg-white/30 shadow-lg' 
+                            : 'border-white/30 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/50'
+                          }
+                        `}
+                        onClick={() => {
+                          playButtonSound();
+                          handleNavClick();
+                        }}
                       >
-                        <Icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    </Button>
-                  );
-                })}
-              </div>
+                        <Link 
+                          href={item.href} 
+                          className="flex items-center space-x-3 w-full"
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </Link>
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

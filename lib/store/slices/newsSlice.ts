@@ -24,12 +24,12 @@ const initialState: NewsState = {
   cacheExpiry: 60 * 60 * 1000, // 1 hour cache
 };
 
-// Fetch trending articles
+// Fetch trending articles - updated to fetch 20 most recent
 export const fetchTrendingNews = createAsyncThunk(
   'news/fetchTrending',
-  async (limit: number = 50, { rejectWithValue }) => {
+  async (limit: number = 20, { rejectWithValue }) => {
     try {
-      console.log(`Fetching ${limit} trending articles...`);
+      console.log(`Fetching ${limit} most recent trending articles...`);
       const articles = await fetchTrendingArticles(limit);
       console.log(`Successfully fetched ${articles.length} trending articles`);
       return articles;
@@ -101,7 +101,7 @@ export const fetchAllNews = createAsyncThunk(
     // Fetch fresh data
     try {
       await Promise.all([
-        dispatch(fetchTrendingNews()),
+        dispatch(fetchTrendingNews(20)), // Updated to fetch 20 articles
         dispatch(fetchOctantNews()),
         dispatch(fetchHistoricalOctantNews())
       ]);

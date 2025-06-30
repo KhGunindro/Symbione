@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,11 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAppSelector } from '@/lib/store/hooks';
 import { getEmotionTheme } from '@/lib/emotions';
+import { supabase } from '@/lib/supabase';
+import { fetchUserBookmarks, deleteUserBookmark, BookmarkedArticle } from '@/lib/news-data';
+import { musicManager } from '@/lib/music';
 import { 
   Send, 
   Mic, 
-  Bot, 
-  User, 
   Star, 
   FileText, 
   X, 
@@ -30,14 +32,19 @@ interface Message {
 }
 
 interface NewsCard {
-  id: number;
+  id: string;
   title: string;
   content: string;
   position: { x: number; y: number };
   category: string;
+  bookmarkId?: string;
+  emotion: string;
 }
 
 export default function ChatPage() {
+  const router = useRouter();
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -47,8 +54,10 @@ export default function ChatPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isOverChatBox, setIsOverChatBox] = useState(false);
-  const [vanishingCards, setVanishingCards] = useState<number[]>([]);
+  const [vanishingCards, setVanishingCards] = useState<string[]>([]);
   const [removedCards, setRemovedCards] = useState<NewsCard[]>([]);
+  const [cards, setCards] = useState<NewsCard[]>([]);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(true);
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -57,53 +66,91 @@ export default function ChatPage() {
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   const emotionTheme = getEmotionTheme(dominantEmotion);
 
-  // Sample cosmic news cards data
-  const newsCardsData: NewsCard[] = [
-    {
-      id: 1,
-      title: "Quantum Computing Breakthrough",
-      content: "Scientists achieve new milestone in quantum computing, potentially revolutionizing data processing capabilities and enabling unprecedented computational power for complex problem-solving...",
-      position: { x: 120, y: 180 },
-      category: "Technology"
-    },
-    {
-      id: 2,
-      title: "Space Mining Operations Begin",
-      content: "First commercial asteroid mining mission launches, marking new era in space resource extraction and opening possibilities for rare metal harvesting beyond Earth...",
-      position: { x: 350, y: 120 },
-      category: "Space"
-    },
-    {
-      id: 3,
-      title: "Neural Interface Advancement",
-      content: "Brain-computer interfaces reach new level of precision, enabling direct thought-to-digital communication and promising revolutionary treatments for neurological conditions...",
-      position: { x: 180, y: 380 },
-      category: "Neuroscience"
-    },
-    {
-      id: 4,
-      title: "Cosmic Dark Matter Discovery",
-      content: "Researchers detect unprecedented dark matter signals, reshaping understanding of universe composition and potentially solving one of physics' greatest mysteries...",
-      position: { x: 420, y: 250 },
-      category: "Physics"
-    },
-    {
-      id: 5,
-      title: "AI Consciousness Debate",
-      content: "Scientific community debates emergence of artificial consciousness in advanced language models, raising profound questions about the nature of intelligence and awareness...",
-      position: { x: 250, y: 480 },
-      category: "AI"
-    },
-    {
-      id: 6,
-      title: "Stellar Formation Patterns",
-      content: "New telescope observations reveal unexpected patterns in stellar formation across distant galaxies, challenging existing theories about cosmic evolution and star birth...",
-      position: { x: 480, y: 380 },
-      category: "Astronomy"
-    }
-  ];
+  // Play chat music when page loads
+  useEffect(() => {
+    musicManager.playChatMusic('ambient');
+  }, []);
 
-  const [cards, setCards] = useState<NewsCard[]>(newsCardsData);
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth check error:', error);
+          router.push('/login');
+          return;
+        }
+
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        setUser(session.user);
+        setLoadingAuth(false);
+      } catch (error) {
+        console.error('Unexpected auth error:', error);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  // Generate random positions for cards
+  const generateRandomPosition = (index: number) => {
+    const padding = 50;
+    const cardWidth = 288; // w-72
+    const cardHeight = 176; // h-44
+    
+    const maxX = window.innerWidth - cardWidth - padding;
+    const maxY = window.innerHeight - cardHeight - padding;
+    
+    // Use a combination of random and index-based positioning to avoid overlap
+    const baseX = (index % 3) * (maxX / 3) + Math.random() * (maxX / 3 - cardWidth);
+    const baseY = Math.floor(index / 3) * 200 + Math.random() * 100 + padding;
+    
+    return {
+      x: Math.max(padding, Math.min(maxX, baseX)),
+      y: Math.max(padding, Math.min(maxY, baseY))
+    };
+  };
+
+  // Load user bookmarks
+  useEffect(() => {
+    const loadBookmarks = async () => {
+      if (!user) return;
+      
+      try {
+        setLoadingBookmarks(true);
+        const bookmarks = await fetchUserBookmarks(user.id);
+        
+        // Convert bookmarks to NewsCard format with random positions
+        const bookmarkCards: NewsCard[] = bookmarks.map((bookmark, index) => ({
+          id: bookmark.id,
+          title: bookmark.title,
+          content: `From r/${bookmark.subreddit} • ${bookmark.emotion} (${bookmark.emotion_intensity}% intensity)`,
+          position: generateRandomPosition(index),
+          category: bookmark.emotion,
+          bookmarkId: bookmark.id,
+          emotion: bookmark.emotion
+        }));
+        
+        setCards(bookmarkCards);
+        console.log(`Loaded ${bookmarkCards.length} bookmarks as cards`);
+      } catch (error) {
+        console.error('Error loading bookmarks:', error);
+      } finally {
+        setLoadingBookmarks(false);
+      }
+    };
+
+    if (!loadingAuth && user) {
+      loadBookmarks();
+    }
+  }, [user, loadingAuth]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -113,7 +160,7 @@ export default function ChatPage() {
   // Real-time typing indicator component
   const TypingIndicator = () => (
     <div className="flex justify-start mb-4">
-      <div className="max-w-xs order-1">
+      <div className="max-w-xs">
         <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-lg p-3">
           <div className="flex items-center space-x-2">
             <div className="flex space-x-1">
@@ -124,9 +171,6 @@ export default function ChatPage() {
             <span className="text-xs text-white/70">Cosmark is thinking...</span>
           </div>
         </div>
-      </div>
-      <div className="w-8 h-8 rounded-full border-2 border-white/30 flex items-center justify-center flex-shrink-0 order-2 ml-2 glass-button text-white">
-        <Bot className="w-4 h-4" />
       </div>
     </div>
   );
@@ -215,6 +259,21 @@ export default function ChatPage() {
     
     // Default cosmic response
     return "I'm currently experiencing some interference with the cosmic intelligence network, but I can sense the depth of your inquiry. The universe holds infinite mysteries, and your question touches upon fundamental aspects of existence and knowledge. While I work to reconnect with the stellar data streams, I encourage you to explore the interconnected nature of all cosmic phenomena.";
+  };
+
+  // Delete bookmark function
+  const deleteBookmark = async (cardId: string) => {
+    try {
+      await deleteUserBookmark(cardId);
+      
+      // Remove card from display
+      setCards(prevCards => prevCards.filter(card => card.id !== cardId));
+      setSelectedCards(prevSelected => prevSelected.filter(card => card.id !== cardId));
+      
+      console.log('Bookmark deleted successfully');
+    } catch (error) {
+      console.error('Error deleting bookmark:', error);
+    }
   };
 
   // Smooth drag handling
@@ -307,7 +366,7 @@ export default function ChatPage() {
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   // Remove card from selection and restore it
-  const removeSelectedCard = (cardId: number) => {
+  const removeSelectedCard = (cardId: string) => {
     setSelectedCards(selectedCards.filter(card => card.id !== cardId));
     
     const cardToRestore = removedCards.find(card => card.id === cardId);
@@ -449,6 +508,28 @@ ${selectedCards.map(card => `
     }, 4000);
   };
 
+  // Show loading screen while checking auth
+  if (loadingAuth) {
+    return (
+      <PageLoader 
+        type="chat" 
+        emotion={dominantEmotion} 
+        message="Verifying access permissions"
+        minLoadTime={1500}
+      >
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white/50 mx-auto mb-6"></div>
+            <div className="text-white text-xl font-semibold">Checking Authentication</div>
+            <div className="text-white/60 text-sm mt-3">
+              Verifying your access to the cosmic intelligence interface...
+            </div>
+          </div>
+        </div>
+      </PageLoader>
+    );
+  }
+
   return (
     <PageLoader 
       type="chat" 
@@ -457,78 +538,94 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* Static Cosmic Background - NO DYNAMIC ELEMENTS */}
-        <div className="fixed inset-0 z-0">
-          {/* Simple static starfield */}
-          <div className="absolute inset-0">
-            {Array.from({ length: 200 }).map((_, i) => (
-              <div
-                key={i}
-                className="absolute bg-white rounded-full opacity-60"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  width: `${Math.random() * 2 + 1}px`,
-                  height: `${Math.random() * 2 + 1}px`,
-                }}
-              />
-            ))}
-          </div>
-          
-          {/* Static gradient overlay */}
-          <div 
-            className="absolute inset-0 opacity-20"
-            style={{
-              background: `radial-gradient(ellipse at center, ${emotionTheme.color}20 0%, transparent 70%)`
-            }}
-          />
-        </div>
-
         <Navigation />
 
-        {/* Floating cosmic news cards */}
+        {/* Floating cosmic news cards with emotion-based glow */}
         <div className="absolute inset-0 z-10">
-          {cards.map((card) => (
-            <div
-              key={card.id}
-              onMouseDown={(e) => handleMouseDown(e, card)}
-              className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
-                vanishingCards.includes(card.id)
-                  ? 'animate-vanish cursor-default'
-                  : isDragging && draggedCard?.id === card.id 
-                    ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
-                    : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
-              }`}
-              style={{
-                transform: `translate(${card.position.x}px, ${card.position.y}px)`,
-                opacity: vanishingCards.includes(card.id) ? 0 : 1,
-                pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto'
-              }}
-            >
-              <div className="flex items-start mb-3">
-                <div className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                  <Star className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs mb-2 glass-button border-white/30 text-white/80"
-                  >
-                    {card.category}
-                  </Badge>
-                  <h3 className="text-sm font-light text-white leading-tight text-glow">
-                    {card.title}
-                  </h3>
-                </div>
+          {loadingBookmarks ? (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/50 mx-auto mb-4"></div>
+                <p className="text-white/70">Loading your bookmarks...</p>
               </div>
-              <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
-                {card.content}
-              </p>
-              
-              <div className="absolute top-2 right-2 w-2 h-2 border-t-2 border-r-2 border-white/30"></div>
-              <div className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2 border-white/30"></div>
             </div>
-          ))}
+          ) : (
+            cards.map((card) => {
+              const cardEmotionTheme = getEmotionTheme(card.emotion as any);
+              return (
+                <div
+                  key={card.id}
+                  onMouseDown={(e) => handleMouseDown(e, card)}
+                  className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
+                    vanishingCards.includes(card.id)
+                      ? 'animate-vanish cursor-default'
+                      : isDragging && draggedCard?.id === card.id 
+                        ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
+                        : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
+                  }`}
+                  style={{
+                    transform: `translate(${card.position.x}px, ${card.position.y}px)`,
+                    opacity: vanishingCards.includes(card.id) ? 0 : 1,
+                    pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto',
+                    boxShadow: `0 0 20px ${cardEmotionTheme.color}40, 0 8px 32px rgba(255,255,255,0.1)`,
+                    borderColor: `${cardEmotionTheme.color}60`
+                  }}
+                >
+                  {/* Delete button */}
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteBookmark(card.id);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors z-20"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+
+                  <div className="flex items-start mb-3">
+                    <div 
+                      className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+                      style={{ 
+                        backgroundColor: `${cardEmotionTheme.color}20`,
+                        borderColor: `${cardEmotionTheme.color}60`
+                      }}
+                    >
+                      <Star className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs mb-2 glass-button border-white/30 text-white/80"
+                        style={{ 
+                          backgroundColor: `${cardEmotionTheme.color}20`,
+                          borderColor: `${cardEmotionTheme.color}60`
+                        }}
+                      >
+                        {card.category}
+                      </Badge>
+                      <h3 className="text-sm font-light text-white leading-tight text-glow">
+                        {card.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <p className="text-xs text-white/70 line-clamp-3 font-light leading-relaxed">
+                    {card.content}
+                  </p>
+                  
+                  <div 
+                    className="absolute top-2 right-8 w-2 h-2 border-t-2 border-r-2"
+                    style={{ borderColor: `${cardEmotionTheme.color}60` }}
+                  ></div>
+                  <div 
+                    className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2"
+                    style={{ borderColor: `${cardEmotionTheme.color}60` }}
+                  ></div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Main chat interface */}
@@ -581,16 +678,16 @@ ${selectedCards.map(card => `
               <div className="flex items-center justify-center h-full text-white/50 text-sm">
                 <div className="text-center">
                   <Brain className="w-12 h-12 mx-auto mb-4 opacity-50 animate-float" />
-                  <p className="text-glow">Drag cosmic cards here to begin your journey</p>
+                  <p className="text-glow">Drag your bookmarked cards here to begin your journey</p>
                   <p className="text-xs mt-2 text-white/40">or simply ask me anything about the cosmos</p>
                 </div>
               </div>
             ) : (
               <>
                 {messages.map((message) => (
-                  <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs ${message.sender === 'user' ? 'order-2' : 'order-1'}`}>
-                      {message.sender === 'user' && message.context && message.context.length > 0 && (
+                  <div key={message.id} className="flex justify-start">
+                    <div className="max-w-xs">
+                      {message.context && message.context.length > 0 && (
                         <div className="mb-2 space-y-1">
                           {message.context.map((card) => (
                             <div key={card.id} className="text-xs text-white glass-card border-white/20 rounded p-2 backdrop-blur-sm">
@@ -603,22 +700,12 @@ ${selectedCards.map(card => `
                         </div>
                       )}
                       
-                      <div className={`rounded-lg p-3 ${
-                        message.sender === 'user' 
-                          ? 'bg-white text-black' 
-                          : 'glass-card border-white/20 backdrop-blur-sm text-white'
-                      }`}>
+                      <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-lg p-3">
                         <p className="text-sm font-light">{message.text}</p>
                         <span className="text-xs mt-2 block font-light tracking-wide opacity-60">
                           {message.timestamp}
                         </span>
                       </div>
-                    </div>
-                    
-                    <div className={`w-8 h-8 rounded-full border-2 border-white/30 flex items-center justify-center flex-shrink-0 ${
-                      message.sender === 'user' ? 'order-1 mr-2 bg-white text-black' : 'order-2 ml-2 glass-button text-white'
-                    }`}>
-                      {message.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
                   </div>
                 ))}
@@ -689,12 +776,12 @@ ${selectedCards.map(card => `
             <div className={`text-xs text-center mt-2 font-light tracking-wide transition-colors duration-300 ${
               isOverChatBox ? 'text-white text-glow' : 'text-white/50'
             }`}>
-              {isOverChatBox ? '✨ RELEASE TO ADD COSMIC CONTEXT ✨' : 'DRAG COSMIC CARDS HERE TO ADD CONTEXT'}
+              {isOverChatBox ? '✨ RELEASE TO ADD COSMIC CONTEXT ✨' : 'DRAG BOOKMARKED CARDS HERE TO ADD CONTEXT'}
             </div>
           </div>
         </div>
 
-        {/* Static CSS - No dynamic animations */}
+        {/* Enhanced Cosmic CSS */}
         <style jsx global>{`
           @keyframes vanish {
             0% { 
@@ -720,6 +807,19 @@ ${selectedCards.map(card => `
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
+          }
+
+          @keyframes float {
+            0%, 100% {
+              transform: translateY(0px);
+            }
+            50% {
+              transform: translateY(-10px);
+            }
+          }
+          
+          .animate-float {
+            animation: float 6s ease-in-out infinite;
           }
         `}</style>
       </div>

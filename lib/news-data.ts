@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from './supabase';
+import { supabase, isSupabaseConfigured, testDatabaseConnection } from './supabase';
 import { EmotionType } from './emotions';
 
 export interface NewsArticle {
@@ -35,6 +35,18 @@ export interface ProcessedNewsArticle {
   emotionScores: Record<EmotionType, number>;
 }
 
+export interface BookmarkedArticle {
+  id: string;
+  user_id: string;
+  news_id: string;
+  title: string;
+  subreddit: string;
+  emotion: string;
+  emotion_intensity: number;
+  source_url: string;
+  bookmarked_at: string;
+}
+
 // Map database emotion columns to our EmotionType
 const emotionMapping: Record<string, EmotionType> = {
   joy: 'joy',
@@ -45,51 +57,6 @@ const emotionMapping: Record<string, EmotionType> = {
   disgust: 'disgust',
   anger: 'anger',
   anticipation: 'anticipation'
-};
-
-// Mock data for development when Supabase is not configured
-const generateMockArticles = (count: number): ProcessedNewsArticle[] => {
-  const emotions: EmotionType[] = ['joy', 'trust', 'fear', 'surprise', 'sadness', 'disgust', 'anger', 'anticipation'];
-  const subreddits = ['worldnews', 'politics', 'technology', 'science'];
-  const mockTitles = [
-    'Global Climate Summit Reaches Historic Agreement',
-    'New Technology Breakthrough Changes Everything',
-    'Economic Markets Show Surprising Resilience',
-    'Political Leaders Meet for Peace Talks',
-    'Scientific Discovery Opens New Possibilities',
-    'Community Rallies Together in Times of Need',
-    'Innovation Drives Progress in Healthcare',
-    'Environmental Protection Measures Announced'
-  ];
-
-  return Array.from({ length: count }, (_, i) => {
-    const emotion = emotions[i % emotions.length];
-    const subreddit = subreddits[i % subreddits.length];
-    const title = mockTitles[i % mockTitles.length];
-    
-    return {
-      id: `mock-${i}`,
-      headline: title,
-      summary: `This is a mock article about ${emotion} in ${subreddit}. This data is generated for development purposes when Supabase is not configured.`,
-      source: 'Mock Data',
-      url: '#',
-      image: null,
-      subreddit,
-      emotion,
-      intensity: Math.random() * 0.5 + 0.5,
-      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      emotionScores: {
-        joy: emotion === 'joy' ? 0.8 : Math.random() * 0.3,
-        trust: emotion === 'trust' ? 0.8 : Math.random() * 0.3,
-        fear: emotion === 'fear' ? 0.8 : Math.random() * 0.3,
-        surprise: emotion === 'surprise' ? 0.8 : Math.random() * 0.3,
-        sadness: emotion === 'sadness' ? 0.8 : Math.random() * 0.3,
-        disgust: emotion === 'disgust' ? 0.8 : Math.random() * 0.3,
-        anger: emotion === 'anger' ? 0.8 : Math.random() * 0.3,
-        anticipation: emotion === 'anticipation' ? 0.8 : Math.random() * 0.3,
-      }
-    };
-  });
 };
 
 // Get the dominant emotion from emotion scores
@@ -167,7 +134,7 @@ export function processNewsArticle(article: NewsArticle): ProcessedNewsArticle {
   };
 }
 
-// Fetch news articles from Supabase
+// Fetch news articles from Supabase with enhanced error handling
 export async function fetchNewsArticles(options: {
   limit?: number;
   subreddits?: string[];
@@ -176,43 +143,18 @@ export async function fetchNewsArticles(options: {
   sortOrder?: 'asc' | 'desc';
 } = {}): Promise<ProcessedNewsArticle[]> {
   if (!isSupabaseConfigured) {
-    console.warn('🔄 Using mock data - Supabase not configured');
-    const mockArticles = generateMockArticles(options.limit || 50);
-    
-    // Apply filters to mock data
-    let filteredArticles = mockArticles;
-    
-    if (options.subreddits && options.subreddits.length > 0) {
-      filteredArticles = filteredArticles.filter(article => 
-        options.subreddits!.includes(article.subreddit)
-      );
-    }
-    
-    if (options.emotions && options.emotions.length > 0) {
-      filteredArticles = filteredArticles.filter(article => 
-        options.emotions!.includes(article.emotion)
-      );
-    }
-    
-    // Apply sorting
-    if (options.sortBy === 'intensity') {
-      filteredArticles.sort((a, b) => 
-        options.sortOrder === 'asc' ? a.intensity - b.intensity : b.intensity - a.intensity
-      );
-    } else {
-      filteredArticles.sort((a, b) => 
-        options.sortOrder === 'asc' 
-          ? new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          : new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-    }
-    
-    return filteredArticles;
+    throw new Error('Supabase is not configured. Please check your environment variables.');
   }
 
   try {
-    console.log('Fetching articles from Supabase with options:', options);
+    console.log('🔍 Fetching articles from Supabase with options:', options);
     
+    // Test connection first
+    const connectionTest = await testDatabaseConnection();
+    if (!connectionTest.success) {
+      throw new Error(`Database connection failed: ${connectionTest.error}`);
+    }
+
     let query = supabase
       .from('classified_reddit_news')
       .select('*');
@@ -238,16 +180,16 @@ export async function fetchNewsArticles(options: {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Supabase query error:', error);
+      console.error('❌ Supabase query error:', error);
       throw new Error(`Database query failed: ${error.message}`);
     }
 
     if (!data || data.length === 0) {
-      console.warn('No articles found in database');
+      console.warn('⚠️ No articles found in database');
       return [];
     }
 
-    console.log(`Successfully fetched ${data.length} articles from database`);
+    console.log(`✅ Successfully fetched ${data.length} articles from database`);
 
     // Process articles and filter by emotions if specified
     let processedArticles = data.map(processNewsArticle);
@@ -267,37 +209,30 @@ export async function fetchNewsArticles(options: {
 
     return processedArticles;
   } catch (error) {
-    console.error('Error fetching news articles:', error);
+    console.error('❌ Error fetching news articles:', error);
     throw error;
   }
 }
 
-// Fetch trending articles (high intensity, recent)
-export async function fetchTrendingArticles(limit: number = 50): Promise<ProcessedNewsArticle[]> {
-  console.log('Fetching trending articles...');
+// Fetch trending articles (most recent 20 articles)
+export async function fetchTrendingArticles(limit: number = 20): Promise<ProcessedNewsArticle[]> {
+  console.log('📈 Fetching most recent trending articles from database...');
   
   const articles = await fetchNewsArticles({
-    limit: limit * 2, // Fetch more to filter for high intensity
+    limit,
     subreddits: ['worldnews', 'politics'], // Keep trending focused on main news
     sortBy: 'timestamp',
     sortOrder: 'desc'
   });
 
-  // Filter for high intensity articles and sort by intensity
-  const trendingArticles = articles
-    .filter(article => article.intensity > 0.6) // Only high intensity articles
-    .sort((a, b) => b.intensity - a.intensity) // Sort by intensity descending
-    .slice(0, limit); // Take top articles
-
-  console.log(`Found ${trendingArticles.length} trending articles`);
-  return trendingArticles;
+  console.log(`✅ Found ${articles.length} trending articles`);
+  return articles;
 }
 
-// Fetch articles for octant visualization - NOW GETS ALL ARTICLES
+// Fetch articles for octant visualization - Gets ALL articles
 export async function fetchOctantArticles(limit: number = 1000): Promise<ProcessedNewsArticle[]> {
-  console.log('Fetching ALL octant articles from database...');
+  console.log('🎯 Fetching ALL octant articles from database...');
   
-  // Remove subreddit filter to get ALL articles
   return fetchNewsArticles({
     limit,
     // No subreddit filter - get all articles from all subreddits
@@ -308,40 +243,7 @@ export async function fetchOctantArticles(limit: number = 1000): Promise<Process
 
 // Fetch historical octant articles (top intensity articles from recent days)
 export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArticle[]> {
-  console.log('Fetching historical octant articles from ALL subreddits...');
-  
-  if (!isSupabaseConfigured) {
-    console.warn('🔄 Using mock historical data - Supabase not configured');
-    const mockArticles = generateMockArticles(30);
-    
-    // Group by day and get highest intensity from each day
-    const articlesByDay: { [key: string]: ProcessedNewsArticle[] } = {};
-    
-    mockArticles.forEach(article => {
-      const date = new Date(article.timestamp);
-      const dayKey = date.toDateString();
-      
-      if (!articlesByDay[dayKey]) {
-        articlesByDay[dayKey] = [];
-      }
-      articlesByDay[dayKey].push(article);
-    });
-
-    // Get the highest intensity article from each day
-    const dailyPeakArticles: ProcessedNewsArticle[] = [];
-    
-    Object.entries(articlesByDay).forEach(([dayKey, dayArticles]) => {
-      if (dayArticles.length > 0) {
-        dayArticles.sort((a, b) => b.intensity - a.intensity);
-        const peakArticle = dayArticles[0];
-        peakArticle.id = `daily-peak-${dayKey}-${peakArticle.id}`;
-        dailyPeakArticles.push(peakArticle);
-      }
-    });
-
-    dailyPeakArticles.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return dailyPeakArticles.slice(0, 8);
-  }
+  console.log('📚 Fetching historical octant articles from ALL subreddits...');
   
   try {
     // Get articles from the last 30 days to have enough data
@@ -358,16 +260,16 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
       .order('timestamp', { ascending: false });
 
     if (error) {
-      console.error('Error fetching historical articles:', error);
+      console.error('❌ Error fetching historical articles:', error);
       throw new Error(`Database query failed: ${error.message}`);
     }
 
     if (!data || data.length === 0) {
-      console.warn('No historical articles found');
+      console.warn('⚠️ No historical articles found');
       return [];
     }
 
-    console.log(`Found ${data.length} historical articles from ALL subreddits`);
+    console.log(`✅ Found ${data.length} historical articles from ALL subreddits`);
 
     // Process all articles
     const processedArticles = data.map(processNewsArticle);
@@ -405,11 +307,65 @@ export async function fetchHistoricalOctantArticles(): Promise<ProcessedNewsArti
     dailyPeakArticles.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     
     const result = dailyPeakArticles.slice(0, 8);
-    console.log(`Found ${result.length} historical peak articles from ALL subreddits`);
+    console.log(`✅ Found ${result.length} historical peak articles from ALL subreddits`);
     
     return result;
   } catch (error) {
-    console.error('Error fetching historical articles:', error);
+    console.error('❌ Error fetching historical articles:', error);
+    throw error;
+  }
+}
+
+// Fetch user bookmarks
+export async function fetchUserBookmarks(userId: string): Promise<BookmarkedArticle[]> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured. Please check your environment variables.');
+  }
+
+  try {
+    console.log('📚 Fetching user bookmarks from database...');
+    
+    const { data, error } = await supabase
+      .from('cosmark_bookmarks')
+      .select('*')
+      .eq('user_id', userId)
+      .order('bookmarked_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching bookmarks:', error);
+      throw new Error(`Database query failed: ${error.message}`);
+    }
+
+    console.log(`✅ Found ${data?.length || 0} bookmarks for user`);
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error fetching user bookmarks:', error);
+    throw error;
+  }
+}
+
+// Delete user bookmark
+export async function deleteUserBookmark(bookmarkId: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured. Please check your environment variables.');
+  }
+
+  try {
+    console.log('🗑️ Deleting bookmark from database...');
+    
+    const { error } = await supabase
+      .from('cosmark_bookmarks')
+      .delete()
+      .eq('id', bookmarkId);
+
+    if (error) {
+      console.error('❌ Error deleting bookmark:', error);
+      throw new Error(`Database delete failed: ${error.message}`);
+    }
+
+    console.log('✅ Bookmark deleted successfully');
+  } catch (error) {
+    console.error('❌ Error deleting bookmark:', error);
     throw error;
   }
 }
@@ -439,7 +395,7 @@ export function getEmotionDistribution(articles: ProcessedNewsArticle[]): Record
 // Get current dominant emotion from recent articles
 export async function getCurrentDominantEmotion(): Promise<EmotionType> {
   try {
-    console.log('Fetching current dominant emotion from ALL articles...');
+    console.log('🎭 Fetching current dominant emotion from ALL articles...');
     
     const recentArticles = await fetchNewsArticles({
       limit: 100,
@@ -449,7 +405,7 @@ export async function getCurrentDominantEmotion(): Promise<EmotionType> {
     });
 
     if (recentArticles.length === 0) {
-      console.warn('No recent articles found, using default emotion');
+      console.warn('⚠️ No recent articles found, using default emotion');
       return 'joy';
     }
 
@@ -466,11 +422,10 @@ export async function getCurrentDominantEmotion(): Promise<EmotionType> {
       }
     });
 
-    const dataSource = isSupabaseConfigured ? 'database' : 'mock data';
-    console.log(`Current dominant emotion: ${dominantEmotion} (${highestCount} articles from ${dataSource})`);
+    console.log(`✅ Current dominant emotion: ${dominantEmotion} (${highestCount} articles from database)`);
     return dominantEmotion;
   } catch (error) {
-    console.error('Error getting current dominant emotion:', error);
+    console.error('❌ Error getting current dominant emotion:', error);
     return 'joy'; // Default fallback
   }
 }

@@ -5,17 +5,20 @@ import { useRouter } from 'next/navigation';
 import ThreeGlobe from '@/components/three/ThreeGlobe';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
+import { NotificationContainer } from '@/components/ui/notification';
 import { getEmotionTheme, EmotionType, EMOTIONS } from '@/lib/emotions';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { forceEmotionUpdate } from '@/lib/store/slices/emotionSlice';
+import { musicManager } from '@/lib/music';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Sparkles, Brain, Globe, TrendingUp, MessageCircle, Clock, BarChart3, Eye, Orbit, ChevronDown } from 'lucide-react';
+import { ArrowRight, Sparkles, Brain, Globe, TrendingUp, MessageCircle, Clock, BarChart3, Eye, Orbit, ChevronDown, Database, Zap } from 'lucide-react';
 
 export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const router = useRouter();
   const dispatch = useAppDispatch();
 
@@ -25,6 +28,11 @@ export default function Home() {
   // Use octant dominant emotion for the Earth's glow, fallback to regular dominant emotion
   const currentEmotion = octantDominantEmotion || dominantEmotion;
 
+  // Play emotion-based music when page loads
+  useEffect(() => {
+    musicManager.playEmotionMusic(currentEmotion);
+  }, [currentEmotion]);
+
   // Force emotion update if we don't have fresh data
   useEffect(() => {
     // If we don't have any emotion data or it's still loading, force an update
@@ -33,6 +41,29 @@ export default function Home() {
       dispatch(forceEmotionUpdate());
     }
   }, [dispatch, dominantEmotion, emotionLoading]);
+
+  // Check database connection status
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const { testDatabaseConnection } = await import('@/lib/supabase');
+        const result = await testDatabaseConnection();
+        
+        if (result.success) {
+          setConnectionStatus('connected');
+          console.log(`✅ Database connected with ${result.count} articles`);
+        } else {
+          setConnectionStatus('error');
+          console.error('❌ Database connection failed:', result.error);
+        }
+      } catch (error) {
+        setConnectionStatus('error');
+        console.error('❌ Connection check failed:', error);
+      }
+    };
+
+    checkConnection();
+  }, []);
 
   useEffect(() => {
     // Simulate loading
@@ -99,11 +130,12 @@ export default function Home() {
     <PageLoader 
       type="general" 
       emotion={currentEmotion} 
-      message="Initializing emotional intelligence platform"
+      message="Connecting to live database and initializing platform"
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white relative overflow-hidden">
         <Navigation />
+        <NotificationContainer />
         
         {/* Enhanced Cosmic Background with Starfield, Stardust, and Nebulae */}
         <div className="fixed inset-0 z-0 pointer-events-none">
@@ -193,6 +225,31 @@ export default function Home() {
         </div>
         
         <div className="relative z-10 pt-16">
+          {/* Database Connection Status */}
+          <div className="fixed top-20 right-6 z-50">
+            <Card className="glass-card border-white/20 backdrop-blur-md">
+              <CardContent className="p-3">
+                <div className="flex items-center space-x-2">
+                  {connectionStatus === 'checking' && (
+                    <>
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                      <span className="text-xs text-white/70">Connecting...</span>
+                    </>
+                  )}
+                  {connectionStatus === 'connected' && (
+                    <></>
+                  )}
+                  {connectionStatus === 'error' && (
+                    <>
+                      <div className="w-2 h-2 bg-red-400 rounded-full" />
+                      <span className="text-xs text-red-400">Connection Error</span>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Hero Section - Mobile Responsive */}
           <section className="min-h-screen relative overflow-hidden">
             {/* Mobile-First Hero Layout */}
@@ -233,7 +290,7 @@ export default function Home() {
                     revealing the emotional landscape of world events through stunning 3D visualizations.
                   </p>
 
-                  {/* Current Emotion Display - Mobile Optimized */}
+                  {/* Current Emotion Display - Mobile Optimized with Live Database Status */}
                   <Card className="max-w-lg mx-auto lg:mx-0 glass-card border-white/30 hover-glow animate-float mb-6 sm:mb-8 lg:mb-12 backdrop-blur-md">
                     <CardContent className="p-4 sm:p-6 lg:p-8">
                       <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4">
@@ -247,6 +304,9 @@ export default function Home() {
                         <span className="text-white/80 font-medium text-xs sm:text-sm lg:text-base">
                           {emotionLoading ? 'Analyzing...' : 'Live Database Emotion'}
                         </span>
+                        {connectionStatus === 'connected' && (
+                          <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                        )}
                       </div>
                       <Badge 
                         variant="outline" 
@@ -263,8 +323,10 @@ export default function Home() {
                           'Fetching live emotion data from database...'
                         ) : (
                           totalOctantArticles > 0 
-                            ? `Based on ${totalOctantArticles} articles from your database`
-                            : 'Live analysis of global news sentiment from database'
+                            ? `Based on ${totalOctantArticles} articles from live database`
+                            : connectionStatus === 'connected' 
+                              ? 'Live analysis of global news sentiment from database'
+                              : 'Connecting to live database...'
                         )}
                       </p>
                     </CardContent>
@@ -618,7 +680,7 @@ export default function Home() {
             }
           }
 
-          /* Cosmic Dust Trails */
+          /* Cosmic Dust Trails */}
           .cosmic-dust-container {
             position: absolute;
             width: 100%;
@@ -670,7 +732,7 @@ export default function Home() {
             }
           }
 
-          /* Distant Galaxies */
+          /* Distant Galaxies */}
           .galaxy-container {
             position: absolute;
             width: 100%;

@@ -1,77 +1,112 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/ui/navigation';
 import PageLoader from '@/components/ui/page-loader';
+import { NotificationContainer, showNotification } from '@/components/ui/notification';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { EMOTIONS, EmotionType, getEmotionTheme } from '@/lib/emotions';
 import { ProcessedNewsArticle } from '@/lib/news-data';
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { fetchTrendingNews } from '@/lib/store/slices/newsSlice';
-import { TrendingUp, Clock, Globe, Filter, Search, ExternalLink, Edit as Reddit, Database, Zap } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { musicManager } from '@/lib/music';
+import { TrendingUp, Clock, Globe, ExternalLink, Edit as Reddit, Database, Zap, Bookmark } from 'lucide-react';
 
 export default function TrendingPage() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [user, setUser] = useState<any>(null);
   const { trendingArticles, isLoading } = useAppSelector(state => state.news);
   const { dominantEmotion } = useAppSelector(state => state.emotion);
   
-  const [filteredArticles, setFilteredArticles] = useState<ProcessedNewsArticle[]>([]);
-  const [emotionFilter, setEmotionFilter] = useState<string>('all');
-  const [subredditFilter, setSubredditFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [bookmarkingStates, setBookmarkingStates] = useState<Record<string, boolean>>({});
 
-  const subreddits = ['worldnews', 'politics'];
-
-  // Load trending articles on component mount
+  // Play emotion-based music when page loads
   useEffect(() => {
-    if (trendingArticles.length === 0) {
-      dispatch(fetchTrendingNews(50));
-    }
-  }, [dispatch, trendingArticles.length]);
+    musicManager.playEmotionMusic(dominantEmotion);
+  }, [dominantEmotion]);
 
-  const applyFilters = () => {
-    let filtered = trendingArticles;
-
-    if (emotionFilter !== 'all') {
-      filtered = filtered.filter(article => article.emotion === emotionFilter);
-    }
-
-    if (subredditFilter !== 'all') {
-      filtered = filtered.filter(article => article.subreddit === subredditFilter);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter(article => 
-        article.headline.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    setFilteredArticles(filtered);
-  };
-
-  const handleFilterChange = (type: string, value: string) => {
-    switch (type) {
-      case 'emotion':
-        setEmotionFilter(value);
-        break;
-      case 'subreddit':
-        setSubredditFilter(value);
-        break;
-    }
-  };
-
-  const handleSearch = () => {
-    applyFilters();
-  };
-
-  // Apply filters when filter values change
+  // Check authentication on mount
   useEffect(() => {
-    applyFilters();
-  }, [emotionFilter, subredditFilter, trendingArticles]);
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Auth check error:', error);
+          router.push('/login');
+          return;
+        }
+
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        setUser(session.user);
+        setLoadingAuth(false);
+      } catch (error) {
+        console.error('Unexpected auth error:', error);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  // Load trending articles on component mount - fetch 20 most recent
+  useEffect(() => {
+    if (!loadingAuth && trendingArticles.length === 0) {
+      dispatch(fetchTrendingNews(20));
+    }
+  }, [dispatch, trendingArticles.length, loadingAuth]);
+
+  // Add bookmark function with notification
+  const addBookmark = async (article: ProcessedNewsArticle) => {
+    if (!user) {
+      console.error('User not authenticated');
+      showNotification('Please sign in to bookmark articles', 'error');
+      return;
+    }
+
+    // Set loading state for this specific article
+    setBookmarkingStates(prev => ({ ...prev, [article.id]: true }));
+
+    try {
+      const bookmarkData = {
+        user_id: user.id,
+        news_id: article.id,
+        title: article.headline,
+        subreddit: article.subreddit,
+        emotion: article.emotion,
+        emotion_intensity: Math.round(article.intensity * 100), // Convert to integer percentage
+        source_url: article.url
+      };
+
+      const { data, error } = await supabase
+        .from('cosmark_bookmarks')
+        .insert([bookmarkData]);
+
+      if (error) {
+        console.error('Error adding bookmark:', error);
+        showNotification('Failed to add bookmark', 'error');
+      } else {
+        console.log('Bookmark added successfully:', data);
+        showNotification('Added to Cosmark!', 'success');
+      }
+    } catch (error) {
+      console.error('Unexpected error adding bookmark:', error);
+      showNotification('An unexpected error occurred', 'error');
+    } finally {
+      // Remove loading state
+      setBookmarkingStates(prev => ({ ...prev, [article.id]: false }));
+    }
+  };
 
   // Fixed formatTimeAgo function to handle string timestamps
   const formatTimeAgo = (timestamp: string) => {
@@ -92,6 +127,28 @@ export default function TrendingPage() {
     return date.toLocaleDateString();
   };
 
+  // Show loading screen while checking auth
+  if (loadingAuth) {
+    return (
+      <PageLoader 
+        type="trending" 
+        emotion={dominantEmotion}
+        message="Verifying access permissions"
+        minLoadTime={1500}
+      >
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white/50 mx-auto mb-6"></div>
+            <div className="text-white text-xl font-semibold">Checking Authentication</div>
+            <div className="text-white/60 text-sm mt-3">
+              Verifying your access to trending news data...
+            </div>
+          </div>
+        </div>
+      </PageLoader>
+    );
+  }
+
   return (
     <PageLoader 
       type="trending" 
@@ -101,6 +158,7 @@ export default function TrendingPage() {
     >
       <div className="min-h-screen bg-black text-white">
         <Navigation />
+        <NotificationContainer />
         
         <div className="mt-16 pt-16 p-6">
           <div className="max-w-7xl mx-auto">
@@ -108,10 +166,10 @@ export default function TrendingPage() {
             <div className="mb-8">
               <h1 className="text-3xl font-bold mb-2 flex items-center">
                 <TrendingUp className="h-8 w-8 mr-3 text-blue-400" />
-                Trending Emotional News
+                Most Recent News
               </h1>
               <p className="text-gray-400 text-lg">
-                Discover the most emotionally intense stories from worldnews and politics communities
+                Discover the latest 20 stories from worldnews and politics communities
               </p>
               <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
                 <div className="flex items-center space-x-2">
@@ -128,102 +186,17 @@ export default function TrendingPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  <span>{filteredArticles.length} Articles</span>
+                  <span>{trendingArticles.length} Articles</span>
                 </div>
               </div>
             </div>
-
-            {/* Premium Filters */}
-            <Card className="mb-8 glass-card border-white/20 hover-glow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center">
-                  <Filter className="h-5 w-5 mr-2 text-blue-400" />
-                  Advanced Filters
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                  {/* Emotion Filter */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white/90">Emotion</label>
-                    <Select value={emotionFilter} onValueChange={(value) => handleFilterChange('emotion', value)}>
-                      <SelectTrigger className="glass-input bg-gray-800 border-gray-600">
-                        <SelectValue placeholder="All emotions" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
-                        <SelectItem value="all">All emotions</SelectItem>
-                        {Object.entries(EMOTIONS).map(([key, emotion]) => (
-                          <SelectItem key={key} value={key}>
-                            <div className="flex items-center space-x-2">
-                              <div 
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: emotion.color }}
-                              />
-                              <span>{emotion.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Subreddit Filter */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white/90">Subreddit</label>
-                    <Select value={subredditFilter} onValueChange={(value) => handleFilterChange('subreddit', value)}>
-                      <SelectTrigger className="glass-input bg-gray-800 border-gray-600">
-                        <SelectValue placeholder="All subreddits" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
-                        <SelectItem value="all">All subreddits</SelectItem>
-                        {subreddits.map((subreddit) => (
-                          <SelectItem key={subreddit} value={subreddit}>
-                            r/{subreddit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Search */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-white/90">Search</label>
-                    <div className="flex space-x-2">
-                      <Input
-                        type="text"
-                        placeholder="Search headlines..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="glass-input bg-gray-800 border-gray-600"
-                        onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                      />
-                      <Button onClick={handleSearch} size="sm" className="glass-button">
-                        <Search className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={() => {
-                    setEmotionFilter('all');
-                    setSubredditFilter('all');
-                    setSearchQuery('');
-                  }} 
-                  variant="outline"
-                  className="glass-button border-white/40 text-white hover:bg-white/15"
-                >
-                  Clear Filters
-                </Button>
-              </CardContent>
-            </Card>
 
             {/* Loading State */}
             {isLoading && (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white/50 mx-auto mb-4"></div>
-                  <p className="text-lg text-white/70">Loading trending articles from database...</p>
+                  <p className="text-lg text-white/70">Loading recent articles from database...</p>
                 </div>
               </div>
             )}
@@ -231,8 +204,10 @@ export default function TrendingPage() {
             {/* Premium Articles Grid */}
             {!isLoading && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {filteredArticles.map((article) => {
+                {trendingArticles.map((article) => {
                   const emotionTheme = getEmotionTheme(article.emotion);
+                  const isBookmarking = bookmarkingStates[article.id] || false;
+                  
                   return (
                     <Card key={article.id} className="glass-card border-white/20 hover-glow premium-hover group">
                       <CardHeader>
@@ -283,17 +258,33 @@ export default function TrendingPage() {
                               <span className="text-sm text-gray-400 font-mono">{Math.round(article.intensity * 100)}%</span>
                             </div>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            asChild 
-                            className="glass-button group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-all duration-300"
-                          >
-                            <a href={article.url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Read Article
-                            </a>
-                          </Button>
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => addBookmark(article)}
+                              disabled={isBookmarking}
+                              className="glass-button border-white/30 text-white hover:bg-white/20 transition-all duration-300"
+                            >
+                              {isBookmarking ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/50 mr-2" />
+                              ) : (
+                                <Bookmark className="h-4 w-4 mr-2" />
+                              )}
+                              Cosmark
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild 
+                              className="glass-button border-white/30 text-white hover:bg-white/20 transition-all duration-300"
+                            >
+                              <a href={article.url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Read
+                              </a>
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -303,46 +294,39 @@ export default function TrendingPage() {
             )}
 
             {/* No Results State */}
-            {!isLoading && filteredArticles.length === 0 && (
+            {!isLoading && trendingArticles.length === 0 && (
               <div className="text-center py-12">
                 <div className="mb-4">
-                  <Search className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400 text-lg mb-2">No articles match your current filters.</p>
-                  <p className="text-gray-500 text-sm">Try adjusting your filters or search terms.</p>
+                  <Globe className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400 text-lg mb-2">No recent articles found.</p>
+                  <p className="text-gray-500 text-sm">Check back later for the latest news updates.</p>
                 </div>
-                <Button onClick={() => {
-                  setEmotionFilter('all');
-                  setSubredditFilter('all');
-                  setSearchQuery('');
-                }} className="glass-button mt-4">
-                  Clear All Filters
-                </Button>
               </div>
             )}
 
             {/* Premium Stats Footer */}
-            {!isLoading && filteredArticles.length > 0 && (
+            {!isLoading && trendingArticles.length > 0 && (
               <div className="mt-12 p-6 glass-card border-white/20 hover-glow">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div>
-                    <div className="text-2xl font-bold text-blue-400">{filteredArticles.length}</div>
-                    <div className="text-sm text-gray-400">Trending Articles</div>
+                    <div className="text-2xl font-bold text-blue-400">{trendingArticles.length}</div>
+                    <div className="text-sm text-gray-400">Recent Articles</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-400">
-                      {Math.round(filteredArticles.reduce((sum, article) => sum + article.intensity, 0) / filteredArticles.length * 100)}%
+                      {Math.round(trendingArticles.reduce((sum, article) => sum + article.intensity, 0) / trendingArticles.length * 100)}%
                     </div>
                     <div className="text-sm text-gray-400">Avg Intensity</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-purple-400">
-                      {new Set(filteredArticles.map(a => a.emotion)).size}
+                      {new Set(trendingArticles.map(a => a.emotion)).size}
                     </div>
                     <div className="text-sm text-gray-400">Emotions</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-orange-400">
-                      {new Set(filteredArticles.map(a => a.subreddit)).size}
+                      {new Set(trendingArticles.map(a => a.subreddit)).size}
                     </div>
                     <div className="text-sm text-gray-400">Subreddits</div>
                   </div>
