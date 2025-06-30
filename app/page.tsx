@@ -229,8 +229,7 @@ export default function Home() {
                     </>
                   )}
                   {connectionStatus === 'connected' && (
-                    <>
-                      <Database className="w-3 h-3 text-green-400" />
+                    <></>
                       <span className="text-xs text-green-400">Live Database</span>
                     </>
                   )}
