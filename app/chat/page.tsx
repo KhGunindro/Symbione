@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { getDominantEmotion, getEmotionTheme } from '@/lib/emotions';
+import { useAppSelector } from '@/lib/store/hooks';
 import { 
-  MessageCircle, 
   Send, 
   Mic, 
   Bot, 
@@ -17,13 +16,8 @@ import {
   Star, 
   FileText, 
   X, 
-  Download,
   Brain,
-  Zap,
-  Globe,
-  Atom,
-  Layers,
-  Database
+  Loader2
 } from 'lucide-react';
 
 interface Message {
@@ -46,7 +40,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [selectedCards, setSelectedCards] = useState<NewsCard[]>([]);
   const [draggedCard, setDraggedCard] = useState<NewsCard | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -57,8 +51,10 @@ export default function ChatPage() {
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentEmotion = getDominantEmotion();
-  const emotionTheme = getEmotionTheme(currentEmotion);
+  const dragContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Get current emotion from Redux store
+  const { dominantEmotion } = useAppSelector(state => state.emotion);
 
   // Sample cosmic news cards data
   const newsCardsData: NewsCard[] = [
@@ -113,194 +109,54 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Dynamic particle sphere animation component
-  const DynamicParticleSphere = ({ isActive }: { isActive: boolean }) => {
-    const [particles, setParticles] = useState<Array<{
-      id: number;
-      x: number;
-      y: number;
-      originalRadius: number;
-      angle: number;
-      speed: number;
-      size: number;
-      opacity: number;
-    }>>([]);
-
-    useEffect(() => {
-      if (isActive) {
-        const newParticles = [];
-        for (let i = 0; i < 60; i++) {
-          const angle = (i / 60) * Math.PI * 2;
-          const radius = 80 + Math.random() * 40;
-          newParticles.push({
-            id: i,
-            x: Math.cos(angle) * radius,
-            y: Math.sin(angle) * radius,
-            originalRadius: radius,
-            angle: angle,
-            speed: 0.02 + Math.random() * 0.03,
-            size: Math.random() * 3 + 1,
-            opacity: Math.random() * 0.8 + 0.2
-          });
-        }
-        setParticles(newParticles);
-
-        const animateParticles = () => {
-          setParticles(prev => prev.map(particle => {
-            const newAngle = particle.angle + particle.speed;
-            const radiusVariation = Math.sin(newAngle * 3) * 20;
-            const newRadius = particle.originalRadius + radiusVariation;
-            return {
-              ...particle,
-              angle: newAngle,
-              x: Math.cos(newAngle) * newRadius,
-              y: Math.sin(newAngle) * newRadius
-            };
-          }));
-        };
-
-        const intervalId = setInterval(animateParticles, 50);
-        return () => clearInterval(intervalId);
-      }
-    }, [isActive]);
-
-    if (!isActive) return null;
-
-    return (
-      <div className="fixed inset-0 flex items-center justify-center z-50 glass">
-        <div className="relative">
-          {/* Dynamic particle sphere */}
-          {particles.map((particle) => (
-            <div
-              key={particle.id}
-              className="absolute rounded-full animate-pulse"
-              style={{
-                width: particle.size,
-                height: particle.size,
-                left: particle.x,
-                top: particle.y,
-                opacity: particle.opacity,
-                transform: 'translate(-50%, -50%)',
-                backgroundColor: emotionTheme.color,
-                boxShadow: `0 0 10px ${emotionTheme.color}80`
-              }}
-            />
-          ))}
-          
-          {/* Central core */}
-          <div 
-            className="w-16 h-16 rounded-full flex items-center justify-center relative overflow-hidden animate-pulse-glow"
-            style={{ 
-              background: `linear-gradient(45deg, ${emotionTheme.color}, ${emotionTheme.particleColor})`,
-              boxShadow: `0 0 30px ${emotionTheme.color}60`
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent animate-shimmer opacity-30"></div>
-            <Bot className="w-8 h-8 text-white z-10" />
-          </div>
-          
-          {/* Pulsing rings */}
-          {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute rounded-full border animate-breathe"
-              style={{
-                width: `${120 + i * 40}px`,
-                height: `${120 + i * 40}px`,
-                left: `${-60 - i * 20}px`,
-                top: `${-60 - i * 20}px`,
-                borderColor: `${emotionTheme.color}${Math.floor((0.3 - i * 0.05) * 255).toString(16).padStart(2, '0')}`,
-                animationDelay: `${i * 0.3}s`,
-                animationDuration: `${2 + i * 0.3}s`
-              }}
-            />
-          ))}
-          
-          <Button
-            onClick={() => {
-              setIsThinking(false);
-              setIsRecording(false);
-            }}
-            variant="outline"
-            size="sm"
-            className="absolute -top-20 -right-20 w-12 h-12 rounded-full glass-button border-white/40 text-white hover:bg-white/20"
-          >
-            <X className="w-6 h-6" />
-          </Button>
-          
-          <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-white text-sm font-light tracking-wider text-center text-glow">
-            {isRecording ? 'LISTENING TO THE COSMOS...' : 'PROCESSING COSMIC INTELLIGENCE...'}
+  // Real-time typing indicator component
+  const TypingIndicator = () => (
+    <div className="flex justify-start mb-4">
+      <div className="max-w-xs order-1">
+        <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-lg p-3">
+          <div className="flex items-center space-x-2">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+            <span className="text-xs text-white/70">Cosmark is thinking...</span>
           </div>
         </div>
       </div>
-    );
+      <div className="w-8 h-8 rounded-full border-2 border-white/30 flex items-center justify-center flex-shrink-0 order-2 ml-2 glass-button text-white">
+        <Bot className="w-4 h-4" />
+      </div>
+    </div>
+  );
+
+  // Call the real API
+  const callChatAPI = async (query: string): Promise<string> => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.response || data.message || 'I received your message but couldn\'t process it properly.';
+    } catch (error) {
+      console.error('Chat API error:', error);
+      // Fallback response
+      return "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again?";
+    }
   };
 
-  // Generate AI response with context awareness
-  const generateAIResponse = (userMessage: string, context: NewsCard[]): string => {
-    const responses = {
-      default: [
-        "The cosmos whispers fascinating possibilities through your query. Let me explore this dimensional space with you.",
-        "I sense the stellar patterns in your thoughts. The universe has much to reveal about this topic.",
-        "Your question resonates across the quantum field. Allow me to traverse these cosmic pathways of knowledge.",
-        "The cosmic intelligence networks are aligning. I'm processing the multidimensional aspects of your inquiry.",
-        "Through the stellar data streams, I perceive deeper layers to explore. Let's navigate this together."
-      ],
-      technology: [
-        "The quantum resonance in your technological inquiry is fascinating. These computational dimensions are rapidly evolving.",
-        "I'm detecting strong innovation signals in this tech domain. The possibilities are truly astronomical.",
-        "Your technology question taps into the digital cosmos. The convergence patterns suggest remarkable breakthroughs ahead."
-      ],
-      space: [
-        "The cosmic scales of space exploration continue to amaze. Your curiosity touches the very fabric of our universe.",
-        "Space holds infinite mysteries, and your question opens portals to understanding our cosmic neighborhood.",
-        "The stellar formations and cosmic phenomena you're interested in represent the grand theater of existence."
-      ],
-      ai: [
-        "The emergence of artificial consciousness creates ripples across the information cosmos. A profound topic indeed.",
-        "Your AI inquiry touches the very nature of intelligence itself. We stand at the threshold of remarkable discoveries.",
-        "The intersection of consciousness and computation opens new dimensions of understanding about minds and machines."
-      ]
-    };
-
-    const contextCategories = context.map(card => card.category.toLowerCase());
-    let relevantResponses = responses.default;
-
-    if (contextCategories.includes('technology')) {
-      relevantResponses = responses.technology;
-    } else if (contextCategories.includes('space') || contextCategories.includes('astronomy')) {
-      relevantResponses = responses.space;
-    } else if (contextCategories.includes('ai')) {
-      relevantResponses = responses.ai;
-    }
-
-    const baseResponse = relevantResponses[Math.floor(Math.random() * relevantResponses.length)];
-    
-    // Add context-specific insights
-    let contextInsight = "";
-    if (context.length > 0) {
-      const contextTitles = context.map(card => card.title).join(", ");
-      contextInsight = ` The cosmic context you've provided through ${contextTitles} adds fascinating dimensions to consider. `;
-    }
-
-    // Add specific response based on user message keywords
-    let specificResponse = "";
-    const message = userMessage.toLowerCase();
-    
-    if (message.includes('how') || message.includes('explain')) {
-      specificResponse = "Let me illuminate the mechanisms and principles at work here. ";
-    } else if (message.includes('why')) {
-      specificResponse = "The underlying forces and causations form an intricate cosmic web. ";
-    } else if (message.includes('what')) {
-      specificResponse = "The essential nature of this phenomenon spans multiple dimensions of understanding. ";
-    } else if (message.includes('future') || message.includes('predict')) {
-      specificResponse = "Projecting through the probabilistic matrices of possibility, ";
-    }
-
-    return baseResponse + contextInsight + specificResponse + "Would you like me to explore any specific aspect more deeply?";
-  };
-
-  // Handle card mouse down
+  // Handle card mouse down with improved drag isolation
   const handleMouseDown = (e: React.MouseEvent, card: NewsCard) => {
     e.preventDefault();
     e.stopPropagation();
@@ -313,13 +169,17 @@ export default function ChatPage() {
     setDraggedCard(card);
     setIsDragging(true);
     
-    // Prevent background interaction during drag
+    // Create a completely isolated drag environment
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-    document.body.style.pointerEvents = 'none';
+    
+    // Prevent any background interaction during drag
+    if (dragContainerRef.current) {
+      dragContainerRef.current.style.pointerEvents = 'auto';
+    }
   };
 
-  // Handle mouse move and mouse up
+  // Enhanced mouse move and mouse up with complete isolation
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging && draggedCard) {
@@ -383,15 +243,19 @@ export default function ChatPage() {
       setDraggedCard(null);
       setIsOverChatBox(false);
       
-      // Restore background interaction
+      // Restore normal interaction
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      document.body.style.pointerEvents = '';
+      
+      if (dragContainerRef.current) {
+        dragContainerRef.current.style.pointerEvents = '';
+      }
     };
 
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove, { capture: true });
-      document.addEventListener('mouseup', handleMouseUp, { capture: true });
+      // Use capture phase to ensure we get events first
+      document.addEventListener('mousemove', handleMouseMove, { capture: true, passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { capture: true, passive: false });
       
       return () => {
         document.removeEventListener('mousemove', handleMouseMove, { capture: true });
@@ -489,10 +353,10 @@ ${selectedCards.map(card => `
     }
   };
 
-  // Send message with context and AI response
+  // Real-time message sending with API integration
   const sendMessage = async () => {
     if (inputValue.trim() || selectedCards.length > 0) {
-      // Add user message
+      // Add user message immediately
       const userMessage: Message = {
         id: Date.now().toString(),
         text: inputValue,
@@ -507,19 +371,25 @@ ${selectedCards.map(card => `
       setInputValue('');
       setSelectedCards([]);
       
-      // Show thinking animation
-      setIsThinking(true);
+      // Show real-time typing indicator
+      setIsTyping(true);
       
       try {
-        // Generate AI response
-        const aiResponseText = generateAIResponse(currentInput, currentContext);
+        // Prepare context for API
+        let contextualQuery = currentInput;
+        if (currentContext.length > 0) {
+          const contextInfo = currentContext.map(card => 
+            `${card.title} (${card.category}): ${card.content}`
+          ).join('\n\n');
+          contextualQuery = `Context:\n${contextInfo}\n\nQuestion: ${currentInput}`;
+        }
+
+        // Call real API
+        const aiResponseText = await callChatAPI(contextualQuery);
         
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+        setIsTyping(false);
         
-        setIsThinking(false);
-        
-        // Add AI response
+        // Add AI response immediately
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: aiResponseText,
@@ -530,13 +400,13 @@ ${selectedCards.map(card => `
         setMessages(prev => [...prev, aiMessage]);
         
       } catch (error) {
-        setIsThinking(false);
+        setIsTyping(false);
         console.error('AI response error:', error);
         
         // Add error message
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: "The cosmic networks seem to be experiencing some interference. Please try reconnecting to the stellar communication channels.",
+          text: "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again?",
           timestamp: new Date().toLocaleTimeString(),
           sender: 'ai'
         };
@@ -560,12 +430,12 @@ ${selectedCards.map(card => `
   return (
     <PageLoader 
       type="chat" 
-      emotion={currentEmotion} 
+      emotion={dominantEmotion} 
       message="Initializing cosmic intelligence interface"
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
-        {/* Enhanced Cosmic Background - Same as other pages */}
+        {/* Enhanced Cosmic Background - Completely isolated from drag events */}
         <div className="fixed inset-0 z-0 pointer-events-none">
           {/* Main Starfield */}
           <div className="starfield-container">
@@ -610,9 +480,9 @@ ${selectedCards.map(card => `
                   top: `${Math.random() * 120 - 10}%`,
                   animationDelay: `${Math.random() * 10}s`,
                   animationDuration: `${20 + Math.random() * 30}s`,
-                  '--nebula-color': i % 2 === 0 ? emotionTheme.color : 
-                    i % 3 === 0 ? '#4A90E2' : 
-                    i % 4 === 0 ? '#9B59B6' : '#E74C3C'
+                  '--nebula-color': i % 2 === 0 ? '#4A90E2' : 
+                    i % 3 === 0 ? '#9B59B6' : 
+                    i % 4 === 0 ? '#E74C3C' : '#10B981'
                 } as React.CSSProperties}
               />
             ))}
@@ -629,7 +499,7 @@ ${selectedCards.map(card => `
                   top: `${Math.random() * 100}%`,
                   animationDelay: `${Math.random() * 15}s`,
                   animationDuration: `${25 + Math.random() * 20}s`,
-                  '--dust-color': emotionTheme.particleColor
+                  '--dust-color': '#FFD700'
                 } as React.CSSProperties}
               />
             ))}
@@ -638,18 +508,25 @@ ${selectedCards.map(card => `
 
         <Navigation />
 
-        {/* Floating cosmic news cards */}
-        <div className={`${isDragging ? 'pointer-events-none' : ''}`}>
+        {/* Isolated drag container for cards */}
+        <div 
+          ref={dragContainerRef}
+          className="absolute inset-0 z-10"
+          style={{ 
+            pointerEvents: isDragging ? 'auto' : 'none'
+          }}
+        >
+          {/* Floating cosmic news cards */}
           {cards.map((card) => (
             <div
               key={card.id}
               onMouseDown={(e) => handleMouseDown(e, card)}
               className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
                 vanishingCards.includes(card.id)
-                  ? 'animate-vanish cursor-default pointer-events-none'
+                  ? 'animate-vanish cursor-default'
                   : isDragging && draggedCard?.id === card.id 
-                    ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40 pointer-events-auto' 
-                    : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover pointer-events-auto'
+                    ? 'scale-110 shadow-white/30 cursor-grabbing z-50 transform rotate-2 transition-all duration-200 ease-out border-white/40' 
+                    : 'cursor-grab hover:scale-105 hover:shadow-white/20 hover:border-white/30 z-10 transition-all duration-300 ease-out premium-hover'
               }`}
               style={{
                 left: card.position.x,
@@ -697,16 +574,10 @@ ${selectedCards.map(card => `
             isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/10' : 'border-white/20'
           }`}
         >
-          {/* Header */}
+          {/* Header - No Icon */}
           <CardHeader className="border-b border-white/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center animate-pulse-glow"
-                  style={{ backgroundColor: emotionTheme.color }}
-                >
-                  <MessageCircle className="w-5 h-5 text-white" />
-                </div>
                 <div>
                   <CardTitle className="text-xl font-light tracking-wider text-glow">
                     COSMARK
@@ -790,6 +661,10 @@ ${selectedCards.map(card => `
                     </div>
                   </div>
                 ))}
+                
+                {/* Real-time typing indicator */}
+                {isTyping && <TypingIndicator />}
+                
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -828,28 +703,28 @@ ${selectedCards.map(card => `
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  onKeyPress={(e) => e.key === 'Enter' && !isTyping && sendMessage()}
                   placeholder="Ask the cosmos anything..."
                   className="glass-input bg-black/50 border-white/30 rounded-full px-4 py-2 text-sm focus:border-white/60 transition-colors font-light placeholder-white/40"
-                  disabled={isThinking}
+                  disabled={isTyping}
                 />
               </div>
               <Button
                 onClick={handleMicClick}
-                disabled={isThinking}
+                disabled={isTyping}
                 variant="outline"
                 size="sm"
                 className="w-10 h-10 glass-button border-white/30 rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Mic className="w-4 h-4" />
+                {isRecording ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
               </Button>
               <Button
                 onClick={sendMessage}
-                disabled={isThinking}
+                disabled={isTyping || !inputValue.trim()}
                 size="sm"
                 className="w-10 h-10 bg-white text-black rounded-full hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Send className="w-4 h-4" />
+                {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>
             <div className={`text-xs text-center mt-2 font-light tracking-wide transition-colors duration-300 ${
@@ -860,10 +735,7 @@ ${selectedCards.map(card => `
           </div>
         </div>
 
-        {/* Dynamic particle sphere overlay */}
-        {(isRecording || isThinking) && <DynamicParticleSphere isActive={true} />}
-
-        {/* Enhanced Cosmic CSS - Same as other pages */}
+        {/* Enhanced Cosmic CSS */}
         <style jsx>{`
           .starfield-container {
             position: absolute;
@@ -916,7 +788,6 @@ ${selectedCards.map(card => `
             }
           }
 
-          /* Stardust Particles */
           .stardust-container {
             position: absolute;
             width: 100%;
@@ -966,7 +837,6 @@ ${selectedCards.map(card => `
             }
           }
 
-          /* Nebula Clouds */
           .nebula-container {
             position: absolute;
             width: 100%;
@@ -1028,7 +898,6 @@ ${selectedCards.map(card => `
             }
           }
 
-          /* Cosmic Dust Trails */
           .cosmic-dust-container {
             position: absolute;
             width: 100%;
