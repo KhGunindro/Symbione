@@ -273,7 +273,7 @@ const callChatAPI = async (query: string): Promise<string> => {
   try {
     console.log('🚀 Calling chat API with query:', query);
     
-    const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
+    const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'https://actual-destined-shrew.ngrok-free.app/chat';
     console.log('🌐 API URL:', apiUrl);
     
     // Try the API call with enhanced error handling
