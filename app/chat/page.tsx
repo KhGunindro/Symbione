@@ -20,7 +20,10 @@ import {
   FileText, 
   X, 
   Brain,
-  Loader2
+  Loader2,
+  Sparkles,
+  MessageCircle,
+  Zap
 } from 'lucide-react';
 
 interface Message {
@@ -61,6 +64,7 @@ export default function ChatPage() {
   
   const chatBoxRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const noiseCanvasRef = useRef<HTMLCanvasElement>(null);
   
   // Get current emotion from Redux store
   const { dominantEmotion } = useAppSelector(state => state.emotion);
@@ -69,6 +73,90 @@ export default function ChatPage() {
   // Play chat music when page loads
   useEffect(() => {
     musicManager.playChatMusic('ambient');
+  }, []);
+
+  // Static noise wavy particles background
+  useEffect(() => {
+    const canvas = noiseCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Create static noise particles
+    const particles: Array<{
+      x: number;
+      y: number;
+      size: number;
+      opacity: number;
+      waveOffset: number;
+      waveSpeed: number;
+    }> = [];
+
+    // Generate particles
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 0.5,
+        opacity: Math.random() * 0.3 + 0.1,
+        waveOffset: Math.random() * Math.PI * 2,
+        waveSpeed: Math.random() * 0.02 + 0.01
+      });
+    }
+
+    let animationFrame: number;
+    let time = 0;
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      time += 0.01;
+
+      particles.forEach(particle => {
+        // Create wavy motion
+        const waveX = particle.x + Math.sin(time * particle.waveSpeed + particle.waveOffset) * 20;
+        const waveY = particle.y + Math.cos(time * particle.waveSpeed * 0.7 + particle.waveOffset) * 15;
+
+        // Draw particle with glow effect
+        ctx.beginPath();
+        ctx.arc(waveX, waveY, particle.size, 0, Math.PI * 2);
+        
+        // Create gradient for glow
+        const gradient = ctx.createRadialGradient(
+          waveX, waveY, 0,
+          waveX, waveY, particle.size * 3
+        );
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${particle.opacity})`);
+        gradient.addColorStop(0.5, `rgba(200, 220, 255, ${particle.opacity * 0.6})`);
+        gradient.addColorStop(1, `rgba(255, 255, 255, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Add subtle noise effect
+        if (Math.random() < 0.1) {
+          particle.opacity = Math.random() * 0.3 + 0.1;
+        }
+      });
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animationFrame);
+    };
   }, []);
 
   // Check authentication on mount
@@ -161,14 +249,14 @@ export default function ChatPage() {
   const TypingIndicator = () => (
     <div className="flex justify-start mb-4">
       <div className="max-w-xs">
-        <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-lg p-3">
-          <div className="flex items-center space-x-2">
+        <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center space-x-3">
             <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
             </div>
-            <span className="text-xs text-white/70">Cosmark is thinking...</span>
+            <span className="text-xs text-white/70 font-medium">Cosmark is thinking...</span>
           </div>
         </div>
       </div>
@@ -538,6 +626,13 @@ ${selectedCards.map(card => `
       minLoadTime={3000}
     >
       <div className="min-h-screen bg-black text-white overflow-hidden relative">
+        {/* Static Noise Wavy Particles Background */}
+        <canvas
+          ref={noiseCanvasRef}
+          className="fixed inset-0 w-full h-full pointer-events-none z-0"
+          style={{ opacity: 0.4 }}
+        />
+
         <Navigation />
 
         {/* Floating cosmic news cards with emotion-based glow */}
@@ -556,7 +651,7 @@ ${selectedCards.map(card => `
                 <div
                   key={card.id}
                   onMouseDown={(e) => handleMouseDown(e, card)}
-                  className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-4 select-none shadow-2xl backdrop-blur-xl ${
+                  className={`absolute w-72 h-44 glass-card border-white/20 hover-glow p-5 select-none shadow-2xl backdrop-blur-xl rounded-2xl ${
                     vanishingCards.includes(card.id)
                       ? 'animate-vanish cursor-default'
                       : isDragging && draggedCard?.id === card.id 
@@ -567,8 +662,9 @@ ${selectedCards.map(card => `
                     transform: `translate(${card.position.x}px, ${card.position.y}px)`,
                     opacity: vanishingCards.includes(card.id) ? 0 : 1,
                     pointerEvents: vanishingCards.includes(card.id) ? 'none' : 'auto',
-                    boxShadow: `0 0 20px ${cardEmotionTheme.color}40, 0 8px 32px rgba(255,255,255,0.1)`,
-                    borderColor: `${cardEmotionTheme.color}60`
+                    boxShadow: `0 0 30px ${cardEmotionTheme.color}30, 0 12px 40px rgba(0,0,0,0.3)`,
+                    borderColor: `${cardEmotionTheme.color}40`,
+                    background: `linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)`
                   }}
                 >
                   {/* Delete button */}
@@ -579,33 +675,35 @@ ${selectedCards.map(card => `
                     }}
                     variant="ghost"
                     size="sm"
-                    className="absolute top-2 right-2 h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors z-20"
+                    className="absolute top-3 right-3 h-7 w-7 p-0 hover:bg-red-500/20 hover:text-red-400 transition-colors z-20 rounded-full"
                   >
                     <X className="w-3 h-3" />
                   </Button>
 
-                  <div className="flex items-start mb-3">
+                  <div className="flex items-start mb-4">
                     <div 
-                      className="w-8 h-8 glass-button border-white/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0"
+                      className="w-10 h-10 glass-button border-white/30 rounded-xl flex items-center justify-center mr-4 flex-shrink-0 shadow-lg"
                       style={{ 
-                        backgroundColor: `${cardEmotionTheme.color}20`,
-                        borderColor: `${cardEmotionTheme.color}60`
+                        backgroundColor: `${cardEmotionTheme.color}15`,
+                        borderColor: `${cardEmotionTheme.color}50`,
+                        boxShadow: `0 0 15px ${cardEmotionTheme.color}20`
                       }}
                     >
-                      <Star className="w-4 h-4 text-white" />
+                      <Star className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <Badge 
                         variant="outline" 
-                        className="text-xs mb-2 glass-button border-white/30 text-white/80"
+                        className="text-xs mb-3 glass-button border-white/30 text-white/90 px-3 py-1 rounded-full font-medium"
                         style={{ 
                           backgroundColor: `${cardEmotionTheme.color}20`,
-                          borderColor: `${cardEmotionTheme.color}60`
+                          borderColor: `${cardEmotionTheme.color}60`,
+                          boxShadow: `0 0 10px ${cardEmotionTheme.color}20`
                         }}
                       >
                         {card.category}
                       </Badge>
-                      <h3 className="text-sm font-light text-white leading-tight text-glow truncate">
+                      <h3 className="text-sm font-medium text-white leading-tight text-glow truncate mb-2">
                         {card.title}
                       </h3>
                     </div>
@@ -614,12 +712,13 @@ ${selectedCards.map(card => `
                     {card.content}
                   </p>
                   
+                  {/* Decorative corners */}
                   <div 
-                    className="absolute top-2 right-8 w-2 h-2 border-t-2 border-r-2"
+                    className="absolute top-3 right-10 w-3 h-3 border-t-2 border-r-2 rounded-tr-lg"
                     style={{ borderColor: `${cardEmotionTheme.color}60` }}
                   ></div>
                   <div 
-                    className="absolute bottom-2 left-2 w-2 h-2 border-b-2 border-l-2"
+                    className="absolute bottom-3 left-3 w-3 h-3 border-b-2 border-l-2 rounded-bl-lg"
                     style={{ borderColor: `${cardEmotionTheme.color}60` }}
                   ></div>
                 </div>
@@ -631,19 +730,25 @@ ${selectedCards.map(card => `
         {/* Main chat interface */}
         <div 
           ref={chatBoxRef}
-          className={`absolute right-6 top-20 bottom-6 w-96 glass-card backdrop-blur-xl rounded-xl border-2 flex flex-col transition-all duration-300 z-20 ${
-            isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/10' : 'border-white/20'
+          className={`absolute right-6 top-20 bottom-6 w-96 glass-card backdrop-blur-xl rounded-2xl border-2 flex flex-col transition-all duration-300 z-20 shadow-2xl ${
+            isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/15' : 'border-white/20'
           }`}
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)'
+          }}
         >
           {/* Header */}
-          <CardHeader className="border-b border-white/20">
+          <CardHeader className="border-b border-white/20 rounded-t-2xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center">
+                  <Brain className="h-6 w-6 text-white" />
+                </div>
                 <div>
                   <CardTitle className="text-xl font-light tracking-wider text-glow">
                     COSMARK
                   </CardTitle>
-                  <p className="text-xs text-white/60 tracking-wide">
+                  <p className="text-xs text-white/60 tracking-wide font-medium">
                     Cosmic Intelligence Interface
                   </p>
                 </div>
@@ -653,32 +758,34 @@ ${selectedCards.map(card => `
                   onClick={exportToNotion}
                   variant="outline"
                   size="sm"
-                  className="glass-button border-white/30 text-white hover:bg-white/20 text-xs premium-hover"
+                  className="glass-button border-white/30 text-white hover:bg-white/20 text-xs premium-hover rounded-xl px-4 py-2"
                 >
                   <FileText className="w-4 h-4 mr-2" />
                   EXPORT
                 </Button>
               </div>
             </div>
-            <div className="mt-4 text-center">
-              <p className="text-white/70 text-sm font-light tracking-wider">
+            <div className="mt-6 text-center">
+              <p className="text-white/70 text-sm font-light tracking-wider leading-relaxed">
                 A LAB FOR YOU TO THINK DEEPER, STORE SMARTER, AND RESEARCH FASTER
               </p>
-              <div className="mt-2 flex justify-center space-x-2">
-                <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
-                <div className="w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                <div className="w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+              <div className="mt-3 flex justify-center space-x-2">
+                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-pulse"></div>
+                <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
               </div>
             </div>
           </CardHeader>
 
           {/* Messages area */}
-          <CardContent className="flex-1 p-4 overflow-y-auto space-y-4">
+          <CardContent className="flex-1 p-6 overflow-y-auto space-y-6">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-white/50 text-sm">
                 <div className="text-center">
-                  <Brain className="w-12 h-12 mx-auto mb-4 opacity-50 animate-float" />
-                  <p className="text-glow">Drag your bookmarked cards here to begin your journey</p>
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center mx-auto mb-6">
+                    <MessageCircle className="w-8 h-8 opacity-50 animate-float" />
+                  </div>
+                  <p className="text-glow font-medium mb-2">Drag your bookmarked cards here to begin your journey</p>
                   <p className="text-xs mt-2 text-white/40">or simply ask me anything about the cosmos</p>
                 </div>
               </div>
@@ -688,16 +795,18 @@ ${selectedCards.map(card => `
                   <div key={message.id} className="flex justify-start">
                     <div className="max-w-xs">
                       {message.context && message.context.length > 0 && (
-                        <div className="mb-2 space-y-1">
+                        <div className="mb-3 space-y-2">
                           {message.context.map((card) => (
-                            <div key={card.id} className="text-xs text-white glass-card border-white/20 rounded-lg p-3 backdrop-blur-sm">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <Star className="w-3 h-3 flex-shrink-0" />
-                                <span className="font-light truncate max-w-48" title={card.title}>
+                            <div key={card.id} className="text-xs text-white glass-card border-white/20 rounded-xl p-4 backdrop-blur-sm shadow-lg">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center flex-shrink-0">
+                                  <Star className="w-3 h-3" />
+                                </div>
+                                <span className="font-medium truncate max-w-48 text-white/90" title={card.title}>
                                   {card.title}
                                 </span>
                               </div>
-                              <div className="text-white/60 text-xs leading-relaxed">
+                              <div className="text-white/60 text-xs leading-relaxed pl-9">
                                 {card.content}
                               </div>
                             </div>
@@ -705,11 +814,22 @@ ${selectedCards.map(card => `
                         </div>
                       )}
                       
-                      <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-lg p-3">
-                        <p className="text-sm font-light leading-relaxed">{message.text}</p>
-                        <span className="text-xs mt-2 block font-light tracking-wide opacity-60">
-                          {message.timestamp}
-                        </span>
+                      <div className="glass-card border-white/20 backdrop-blur-sm text-white rounded-2xl p-4 shadow-lg">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center flex-shrink-0 mt-1">
+                            {message.sender === 'user' ? (
+                              <div className="w-4 h-4 bg-white/80 rounded-full"></div>
+                            ) : (
+                              <Sparkles className="w-4 h-4 text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-light leading-relaxed">{message.text}</p>
+                            <span className="text-xs mt-3 block font-light tracking-wide opacity-60">
+                              {message.timestamp}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -723,12 +843,17 @@ ${selectedCards.map(card => `
 
           {/* Selected cards display */}
           {selectedCards.length > 0 && (
-            <div className="px-4 py-2 border-t border-white/20">
-              <div className="text-xs text-white/60 mb-2 tracking-wide uppercase">Cosmic Context:</div>
+            <div className="px-6 py-4 border-t border-white/20">
+              <div className="text-xs text-white/60 mb-3 tracking-wide uppercase font-medium flex items-center">
+                <Zap className="w-3 h-3 mr-2" />
+                Cosmic Context:
+              </div>
               <div className="flex flex-wrap gap-2">
                 {selectedCards.map((card) => (
-                  <div key={card.id} className="flex items-center glass-card border-white/20 text-white text-xs px-3 py-1 rounded backdrop-blur-sm min-w-0">
-                    <Star className="w-3 h-3 mr-1 flex-shrink-0" />
+                  <div key={card.id} className="flex items-center glass-card border-white/20 text-white text-xs px-3 py-2 rounded-xl backdrop-blur-sm min-w-0 shadow-lg">
+                    <div className="w-4 h-4 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/20 flex items-center justify-center mr-2 flex-shrink-0">
+                      <Star className="w-2 h-2" />
+                    </div>
                     <span className="truncate max-w-24 font-light" title={card.title}>
                       {card.title}
                     </span>
@@ -747,7 +872,7 @@ ${selectedCards.map(card => `
           )}
 
           {/* Input area */}
-          <div className={`p-4 border-t-2 transition-colors duration-300 ${
+          <div className={`p-6 border-t-2 transition-colors duration-300 rounded-b-2xl ${
             isOverChatBox ? 'border-white/40 bg-white/5' : 'border-white/20'
           }`}>
             <div className="flex items-center space-x-3">
@@ -758,7 +883,7 @@ ${selectedCards.map(card => `
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !isTyping && sendMessage()}
                   placeholder="Ask the cosmos anything..."
-                  className="glass-input bg-black/50 border-white/30 rounded-full px-4 py-2 text-sm focus:border-white/60 transition-colors font-light placeholder-white/40"
+                  className="glass-input bg-black/50 border-white/30 rounded-2xl px-5 py-3 text-sm focus:border-white/60 transition-colors font-light placeholder-white/40 shadow-lg"
                   disabled={isTyping}
                 />
               </div>
@@ -767,20 +892,20 @@ ${selectedCards.map(card => `
                 disabled={isTyping}
                 variant="outline"
                 size="sm"
-                className="w-10 h-10 glass-button border-white/30 rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-12 h-12 glass-button border-white/30 rounded-2xl hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
-                {isRecording ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
+                {isRecording ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5" />}
               </Button>
               <Button
                 onClick={sendMessage}
                 disabled={isTyping || (!inputValue.trim() && selectedCards.length === 0)}
                 size="sm"
-                className="w-10 h-10 bg-white text-black rounded-full hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 text-white rounded-2xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transition-all duration-300"
               >
-                {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
               </Button>
             </div>
-            <div className={`text-xs text-center mt-2 font-light tracking-wide transition-colors duration-300 ${
+            <div className={`text-xs text-center mt-4 font-light tracking-wide transition-colors duration-300 ${
               isOverChatBox ? 'text-white text-glow' : 'text-white/50'
             }`}>
               {isOverChatBox ? '✨ RELEASE TO ADD COSMIC CONTEXT ✨' : 'DRAG BOOKMARKED CARDS HERE TO ADD CONTEXT'}
