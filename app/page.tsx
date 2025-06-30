@@ -230,7 +230,6 @@ export default function Home() {
                   )}
                   {connectionStatus === 'connected' && (
                     <></>
-                    </>
                   )}
                   {connectionStatus === 'error' && (
                     <>
