@@ -229,8 +229,7 @@ export default function Home() {
                     </>
                   )}
                   {connectionStatus === 'connected' && (
-                    <>
-                      <span className="text-xs">Live Database</span>
+                    <></>
                     </>
                   )}
                   {connectionStatus === 'error' && (
