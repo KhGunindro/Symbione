@@ -333,7 +333,7 @@ export default function LoginPage() {
               <div className="bg-black flex items-center justify-center p-6 relative">
                 <div className="relative w-full h-full flex items-center justify-center">
                   <img
-                    src="/ChatGPT Image Jun 28, 2025, 11_07_46 PM 1.png"
+                    src="/login.png"
                     alt="Cosmic visualization with Saturn and figure on cliff contemplating the universe"
                     className="w-full h-full object-cover rounded-2xl"
                     style={{ 
