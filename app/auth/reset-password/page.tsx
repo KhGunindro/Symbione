@@ -200,6 +200,12 @@ export default function ResetPasswordPage() {
     
     if (!validateForm()) return;
 
+    // Check if supabase is available
+    if (!supabase) {
+      setErrors({ submit: 'Authentication service is not available. Please try again later.' });
+      return;
+    }
+
     const accessToken = searchParams.get('access_token');
     const refreshToken = searchParams.get('refresh_token');
     
@@ -360,7 +366,7 @@ export default function ResetPasswordPage() {
                           placeholder="Enter your new password (min 6 characters)"
                           value={formData.password}
                           onChange={(e) => handleInputChange('password', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl transform hover:scale-[1.02] focus:scale-[1.02] ${
+                          className={`auth-input h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black text-base pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl transform hover:scale-[1.02] focus:scale-[1.02] ${
                             errors.password ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
@@ -390,7 +396,7 @@ export default function ResetPasswordPage() {
                           placeholder="Confirm your new password"
                           value={formData.confirmPassword}
                           onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                          className={`h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black placeholder-gray-600 text-base pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl transform hover:scale-[1.02] focus:scale-[1.02] ${
+                          className={`auth-input h-14 bg-gray-50 border-2 border-gray-400 rounded-xl transition-all duration-300 hover:border-gray-600 focus:border-black focus:bg-white text-black text-base pr-12 shadow-lg hover:shadow-xl focus:shadow-2xl transform hover:scale-[1.02] focus:scale-[1.02] ${
                             errors.confirmPassword ? 'border-red-500' : ''
                           }`}
                           disabled={loading}
