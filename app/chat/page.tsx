@@ -43,6 +43,11 @@ interface NewsCard {
   emotion: string;
 }
 
+// Define the FastAPI response type
+interface FastAPIResponse {
+  answer: string;
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -261,63 +266,55 @@ export default function ChatPage() {
     </div>
   );
 
-  // Enhanced API call with better error handling and CORS support
-  const callChatAPI = async (query: string): Promise<string> => {
-    try {
-      console.log('🚀 Calling chat API with query:', query);
-      
-      const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
-      console.log('🌐 API URL:', apiUrl);
-      
-      // Try the API call with enhanced error handling
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ query }),
-        mode: 'cors',
-        signal: controller.signal,
-      });
+  // Enhanced API call with FastAPI integration
+// ... existing imports and interfaces ...
 
-      clearTimeout(timeoutId);
-      console.log('📡 API Response status:', response.status);
-      console.log('📡 API Response headers:', Object.fromEntries(response.headers.entries()));
+// Enhanced callChatAPI with detailed logging
+const callChatAPI = async (query: string): Promise<string> => {
+  try {
+    console.log('🚀 Calling chat API with query:', query);
+    
+    const apiUrl = process.env.NEXT_PUBLIC_CHAT_API_URL || 'http://14.139.207.247:8001/chat';
+    console.log('🌐 API URL:', apiUrl);
+    
+    // Try the API call with enhanced error handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+      signal: controller.signal,
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('📦 API Response data:', data);
-      
-      // Handle different response formats from your FastAPI
-      if (typeof data === 'string') {
-        return data;
-      } else if (data.answer) {
-        return data.answer;
-      } else if (data.response) {
-        return data.response;
-      } else if (data.message) {
-        return data.message;
-      } else {
-        console.warn('⚠️ Unexpected response format:', data);
-        return JSON.stringify(data);
-      }
-    } catch (error) {
-      console.error('❌ Chat API error:', error);
-      
-      // Provide intelligent fallback responses based on the query
-      const fallbackResponse = generateFallbackResponse(query);
-      console.log('🔄 Using fallback response:', fallbackResponse);
-      return fallbackResponse;
+    clearTimeout(timeoutId);
+    console.log('📡 API Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Response error text:', errorText);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-  };
+
+    const data: FastAPIResponse = await response.json();
+    console.log('📦 API Response data:', data);
+    
+    if (data.answer) {
+      return data.answer;
+    } else {
+      console.warn('⚠️ Unexpected response format:', data);
+      return "I received an unexpected response format from the cosmic network.";
+    }
+  } catch (error) {
+    console.error('❌ Chat API error:', error);
+    return generateFallbackResponse(query);
+  }
+};
+
+// ... rest of the component ...
 
   // Generate intelligent fallback responses when API is unavailable
   const generateFallbackResponse = (query: string): string => {
@@ -526,7 +523,7 @@ ${selectedCards.map(card => `
     }
   };
 
-  // Send message with enhanced API integration
+  // Send message with FastAPI integration
   const sendMessage = async () => {
     if (inputValue.trim() || selectedCards.length > 0) {
       const userMessage: Message = {
@@ -546,16 +543,20 @@ ${selectedCards.map(card => `
       setIsTyping(true);
       
       try {
-        let contextualQuery = currentInput;
+        // Prepare context information
+        let contextInfo = '';
         if (currentContext.length > 0) {
-          const contextInfo = currentContext.map(card => 
+          contextInfo = currentContext.map(card => 
             `${card.title} (${card.category}): ${card.content}`
           ).join('\n\n');
-          contextualQuery = `Context:\n${contextInfo}\n\nQuestion: ${currentInput}`;
         }
 
-        console.log('🔄 Sending query to API:', contextualQuery);
-        const aiResponseText = await callChatAPI(contextualQuery);
+        // Create the final query with context
+        const finalQuery = contextInfo 
+          ? `Context:\n${contextInfo}\n\nQuestion: ${currentInput}`
+          : currentInput;
+
+        const aiResponseText = await callChatAPI(finalQuery);
         
         setIsTyping(false);
         
@@ -567,15 +568,14 @@ ${selectedCards.map(card => `
         };
         
         setMessages(prev => [...prev, aiMessage]);
-        console.log('✅ AI response added successfully');
         
       } catch (error) {
         setIsTyping(false);
-        console.error('❌ AI response error:', error);
+        console.error('AI response error:', error);
         
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: "I'm experiencing some cosmic interference right now. The stellar networks seem to be fluctuating. Could you try asking me again?",
+          text: "I'm experiencing cosmic interference. The stellar networks are fluctuating. Please try again.",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           sender: 'ai'
         };
@@ -718,7 +718,7 @@ ${selectedCards.map(card => `
         {/* Main chat interface */}
         <div 
           ref={chatBoxRef}
-          className={`absolute right-6 top-20 bottom-6 w-96 glass-card backdrop-blur-xl rounded-2xl border-2 flex flex-col transition-all duration-300 z-20 shadow-2xl ${
+          className={`absolute right-6 mt-16 ml-20 top-20 bottom-6 w-130 glass-card backdrop-blur-xl rounded-2xl border-2 flex flex-col transition-all duration-300 z-20 shadow-2xl ${
             isOverChatBox ? 'border-white/60 shadow-lg shadow-white/20 bg-white/15' : 'border-white/20'
           }`}
           style={{
@@ -746,7 +746,7 @@ ${selectedCards.map(card => `
               </div>
             </div>
             <div className="mt-6 text-center">
-              <p className="text-white/70 text-sm font-light tracking-wider leading-relaxed">
+              <p className="text-white/70 text-sm font-light tracking-wide leading-relaxed">
                 A LAB FOR YOU TO THINK DEEPER, STORE SMARTER, AND RESEARCH FASTER
               </p>
               <div className="mt-3 flex justify-center space-x-2">
