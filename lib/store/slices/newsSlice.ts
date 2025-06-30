@@ -102,7 +102,7 @@ export const fetchAllNews = createAsyncThunk(
     try {
       await Promise.all([
         dispatch(fetchTrendingNews(20)), // Updated to fetch 20 articles
-        dispatch(fetchOctantNews(undefined)), // Fixed: explicitly pass undefined
+        dispatch(fetchOctantNews()), // Fixed: omit argument to use default value
         dispatch(fetchHistoricalOctantNews())
       ]);
       console.log('All news data refreshed successfully');
